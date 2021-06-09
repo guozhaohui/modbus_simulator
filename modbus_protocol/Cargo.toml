@@ -1,0 +1,12 @@
+[package]
+name = "modbus_protocol"
+version = "0.1.0"
+authors = ["guozhaohui"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+byteorder = "1"
+enum-primitive-derive = "^0.1"
+num-traits = "^0.1"
