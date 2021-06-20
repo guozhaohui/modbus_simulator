@@ -16,6 +16,19 @@ impl Coil {
             Coil::Off => 0x0000,
         }
     }
+    pub fn from_u16(code: u16) -> Result<Coil> {
+        match code {
+            0xff00 => {
+                Ok(Coil::On)
+            }
+            0x0000 => {
+                Ok(Coil::Off)
+            }
+            _ => {
+                Err(Error::ParseCoilError)
+            }
+        }
+    }
 }
 
 impl FromStr for Coil {

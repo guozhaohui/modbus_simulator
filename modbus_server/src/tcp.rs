@@ -1,321 +1,225 @@
+extern crate enum_primitive_derive;
+extern crate num_traits;
+extern crate clap;
 extern crate modbus_protocol;
-
+use std::net::{Shutdown, TcpStream};
+use std::io::{Cursor, Read, Write};
+use std::sync::{Arc, Mutex};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::borrow::BorrowMut;
-use std::io::{Cursor, Read, Write};
-use std::net::{Shutdown, TcpStream};
-use std::time::Duration;
-use modbus_protocol::exception_code::{Error, ExceptionCode, Reason, Result};
+
 use modbus_protocol::coils::Coil;
+// use modbus_protocol::function_code::Function;
 use modbus_protocol::requests::Requests;
-use modbus_protocol::function_code::Function;
-use modbus_protocol::utils;
-use num_traits::FromPrimitive;
+use modbus_protocol::exception_code::{Error, ExceptionCode, Reason, Result};
+use super::server_status::StatusInfo;
+use super::mbap::Header;
+use super::mbap::MODBUS_HEADER_SIZE;
 
-const MODBUS_PROTOCOL_TCP: u16 = 0x0000;
-const MODBUS_TCP_DEFAULT_PORT: u16 = 502;
-const MODBUS_HEADER_SIZE: usize = 7;
-pub const MODBUS_MAX_PACKET_SIZE: usize = 260;
+const MODBUS_MAX_PACKET_SIZE: usize = 260;
 
-/// Config structure for more control over the tcp socket settings
-#[derive(Clone, Copy)]
-pub struct Config {
-    /// The TCP port to use for communication (Default: `502`)
-    pub tcp_port: u16,
-    /// Connection timeout for TCP socket (Default: `OS Default`)
-    pub tcp_connect_timeout: Option<Duration>,
-    /// Timeout when reading from the TCP socket (Default: `infinite`)
-    pub tcp_read_timeout: Option<Duration>,
-    /// Timeout when writing to the TCP socket (Default: `infinite`)
-    pub tcp_write_timeout: Option<Duration>,
-    /// The modbus Unit Identifier used in the modbus layer (Default: `1`)
-    pub modbus_uid: u8,
-}
+fn write_response(stream: &mut TcpStream, header: Header,  buff: &mut [u8]) {
+    if buff.is_empty() {
+        return;
+    }
 
-impl Default for Config {
-    fn default() -> Config {
-        Config {
-            tcp_port: MODBUS_TCP_DEFAULT_PORT,
-            tcp_connect_timeout: None,
-            tcp_read_timeout: None,
-            tcp_write_timeout: None,
-            modbus_uid: 1,
-        }
+    if buff.len() > MODBUS_MAX_PACKET_SIZE {
+        return;
+    }
+
+    let head_buff = header.pack();
+    {
+        let mut start = Cursor::new(buff.borrow_mut());
+        start.write_all(&head_buff.unwrap());
+    }
+    match stream.write_all(buff) {
+        Ok(_s) => {
+        },
+        Err(e) => {
+        },
     }
 }
 
-#[derive(Debug, PartialEq)]
-struct Header {
-    tid: u16,
-    pid: u16,
-    len: u16,
-    uid: u8,
-}
 
-impl Header {
-    fn new(transport: &mut Transport, len: u16) -> Header {
-        Header {
-            tid: transport.new_tid(),
-            pid: MODBUS_PROTOCOL_TCP,
-            len: len - MODBUS_HEADER_SIZE as u16,
-            uid: transport.uid,
-        }
-    }
-
-    fn pack(&self) -> Result<Vec<u8>> {
-        let mut buff = vec![];
-        buff.write_u16::<BigEndian>(self.tid)?;
-        buff.write_u16::<BigEndian>(self.pid)?;
-        buff.write_u16::<BigEndian>(self.len)?;
-        buff.write_u8(self.uid)?;
-        Ok(buff)
-    }
-
-    fn unpack(buff: &[u8]) -> Result<Header> {
-        let mut rdr = Cursor::new(buff);
-        Ok(Header {
-            tid: rdr.read_u16::<BigEndian>()?,
-            pid: rdr.read_u16::<BigEndian>()?,
-            len: rdr.read_u16::<BigEndian>()?,
-            uid: rdr.read_u8()?,
-        })
-    }
-}
-
-/// Context object which holds state for all modbus operations.
-pub struct Transport {
-    tid: u16,
-    uid: u8,
-    stream: TcpStream,
-}
-
-impl Transport {
-
-    // Create a new transaction Id, incrementing the previous one.
-    // The Id is wrapping around if the Id reaches `u16::MAX`.
-    fn new_tid(&mut self) -> u16 {
-        self.tid = self.tid.wrapping_add(1);
-        self.tid
-    }
-
-    fn read(self: &mut Self, fun: &Function) -> Result<Vec<u8>> {
-        let packed_size = |v: u16| v / 8 + if v % 8 > 0 { 1 } else { 0 };
-        let (addr, count, expected_bytes) = match *fun {
-            Function::ReadCoils(a, c) | Function::ReadDiscreteInputs(a, c) => {
-                (a, c, packed_size(c) as usize)
+pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: Arc<Mutex<StatusInfo>>){
+    let data = &mut [0 as u8; MODBUS_MAX_PACKET_SIZE];
+    loop {
+        match stream.read(data) {
+            Err(_) => {
+                println!("An error occurred, terminating connection with {}", stream.peer_addr().unwrap());
+                stream.shutdown(Shutdown::Both).unwrap();
+                break;
             }
-            Function::ReadHoldingRegisters(a, c) | Function::ReadInputRegisters(a, c) => {
-                (a, c, 2 * c as usize)
-            }
-            _ => return Err(Error::InvalidFunction),
-        };
-
-        if count < 1 {
-            return Err(Error::InvalidData(Reason::RecvBufferEmpty));
-        }
-
-        if count as usize > MODBUS_MAX_PACKET_SIZE {
-            return Err(Error::InvalidData(Reason::UnexpectedReplySize));
-        }
-
-        let header = Header::new(self, MODBUS_HEADER_SIZE as u16 + 6u16);
-        let mut buff = header.pack()?;
-        buff.write_u8(fun.code())?;
-        buff.write_u16::<BigEndian>(addr)?;
-        buff.write_u16::<BigEndian>(count)?;
-
-        match self.stream.write_all(&buff) {
-            Ok(_s) => {
-                let mut reply = vec![0; MODBUS_HEADER_SIZE + expected_bytes + 2];
-                match self.stream.read(&mut reply) {
-                    Ok(_s) => {
-                        let resp_hd = Header::unpack(&reply[..MODBUS_HEADER_SIZE])?;
-                        Transport::validate_response_header(&header, &resp_hd)?;
-                        Transport::validate_response_code(&buff, &reply)?;
-                        Transport::get_reply_data(&reply, expected_bytes)
-                    }
-                    Err(e) => Err(Error::Io(e)),
+            Ok(size) => {
+                println!("received {:?} bytes", size);
+                let mut _status = shared_status.lock().unwrap();
+                _status.set_status(14, 17);
+                let header = Header::unpack(data).unwrap();
+                let mut mbdata = &data[MODBUS_HEADER_SIZE + 2..];
+                let code = mbdata.read_u8().unwrap();
+                match code {
+                    0x01 =>{
+                        let addr= mbdata.read_u16::<BigEndian>().unwrap();
+                        let count = mbdata.read_u16::<BigEndian>().unwrap();
+                        let ret = _status.read_coils(addr, count);
+                        let mut buff = vec![0; MODBUS_HEADER_SIZE];
+                        match ret {
+                            Ok(coils) => {
+                                buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
+                                buff.write_u8(coils.len() as u8).unwrap();
+                                for v in coils {
+                                    buff.write_u16::<BigEndian>(v.code()).unwrap();
+                                }
+                            },
+                            Err(e) => {
+                                println!("something wrong {}", e);
+                                buff.write_u8(ExceptionCode::IllegalDataValue as u8).unwrap();
+                            }
+                        }
+                        write_response(&mut stream, header, &mut buff);
+                    },
+                    0x02 =>{
+                        let addr= mbdata.read_u16::<BigEndian>().unwrap();
+                        let count = mbdata.read_u16::<BigEndian>().unwrap();
+                        let ret = _status.read_discrete_inputs(addr, count);
+                        let mut buff = vec![0; MODBUS_HEADER_SIZE];
+                        match ret {
+                            Ok(coils) => {
+                                buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
+                                buff.write_u8(coils.len() as u8).unwrap();
+                                for v in coils {
+                                    buff.write_u16::<BigEndian>(v.code()).unwrap();
+                                }
+                            },
+                            Err(e) => {
+                                println!("something wrong {}", e);
+                                buff.write_u8(ExceptionCode::IllegalDataValue as u8).unwrap();
+                            }
+                        }
+                        write_response(&mut stream, header, &mut buff);
+                    },
+                    0x03 =>{
+                        let addr= mbdata.read_u16::<BigEndian>().unwrap();
+                        let count = mbdata.read_u16::<BigEndian>().unwrap();
+                        let ret = _status.read_holding_registers(addr, count);
+                        let mut buff = vec![0; MODBUS_HEADER_SIZE];
+                        match ret {
+                            Ok(registers) => {
+                                buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
+                                buff.write_u8(registers.len() as u8).unwrap();
+                                for v in registers {
+                                    buff.write_u16::<BigEndian>(v).unwrap();
+                                }
+                            },
+                            Err(e) => {
+                                println!("something wrong {}", e);
+                                buff.write_u8(ExceptionCode::IllegalDataValue as u8).unwrap();
+                            }
+                        }
+                        write_response(&mut stream, header, &mut buff);
+                    },
+                    0x04 =>{
+                        let addr= mbdata.read_u16::<BigEndian>().unwrap();
+                        let count = mbdata.read_u16::<BigEndian>().unwrap();
+                        let ret = _status.read_input_registers(addr, count);
+                        let mut buff = vec![0; MODBUS_HEADER_SIZE];
+                        buff.write_u8(0x01 as u8).unwrap();
+                        match ret {
+                            Ok(registers) => {
+                                buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
+                                buff.write_u8(registers.len() as u8).unwrap();
+                                for v in registers {
+                                    buff.write_u16::<BigEndian>(v).unwrap();
+                                }
+                            },
+                            Err(e) => {
+                                println!("something wrong {}", e);
+                                buff.write_u8(ExceptionCode::IllegalDataValue as u8).unwrap();
+                            }
+                        }
+                        write_response(&mut stream, header, &mut buff);
+                    },
+                    0x05 => {
+                        let addr= mbdata.read_u16::<BigEndian>().unwrap();
+                        let value = mbdata.read_u16::<BigEndian>().unwrap();
+                        let ret = _status.write_single_coil(addr, Coil::from_u16(value).unwrap());
+                        let mut buff = vec![0; MODBUS_HEADER_SIZE];
+                        match ret {
+                            Ok(()) => {
+                                buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
+                            },
+                            Err(e) => {
+                                println!("something wrong {}", e);
+                                buff.write_u8(ExceptionCode::IllegalDataValue as u8).unwrap();
+                            }
+                        }
+                        write_response(&mut stream, header, &mut buff);
+                    },
+                    0x06 => {
+                        let addr= mbdata.read_u16::<BigEndian>().unwrap();
+                        let value = mbdata.read_u16::<BigEndian>().unwrap();
+                        let ret = _status.write_single_register(addr, value);
+                        let mut buff = vec![0; MODBUS_HEADER_SIZE];
+                        match ret {
+                            Ok(()) => {
+                                buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
+                            },
+                            Err(e) => {
+                                println!("something wrong {}", e);
+                                buff.write_u8(ExceptionCode::IllegalDataValue as u8).unwrap();
+                            }
+                        }
+                        write_response(&mut stream, header, &mut buff);
+                    },
+                    0x0f => {
+                        let addr= mbdata.read_u16::<BigEndian>().unwrap();
+                        let count = mbdata.read_u16::<BigEndian>().unwrap();
+                        let mut values :Vec<Coil> = Vec::with_capacity(count as usize);
+                        for i in 0..count-1 {
+                            values[i as usize] = Coil::from_u16(mbdata.read_u16::<BigEndian>().unwrap()).unwrap();
+                        }
+                        let ret = _status.write_multiple_coils(addr, &values[..]);
+                        let mut buff = vec![0; MODBUS_HEADER_SIZE];
+                        buff.write_u8(0x01 as u8).unwrap();
+                        match ret {
+                            Ok(()) => {
+                                buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
+                            },
+                            Err(e) => {
+                                println!("something wrong {}", e);
+                                buff.write_u8(ExceptionCode::IllegalDataValue as u8).unwrap();
+                            }
+                        }
+                        write_response(&mut stream, header, &mut buff);
+                    },
+                    0x10 => {
+                        let addr= mbdata.read_u16::<BigEndian>().unwrap();
+                        let count = mbdata.read_u16::<BigEndian>().unwrap();
+                        let mut values :Vec<u16> = Vec::with_capacity(count as usize);
+                        for i in 0..count-1 {
+                            values[i as usize] = mbdata.read_u16::<BigEndian>().unwrap();
+                        }
+                        let ret = _status.write_multiple_registers(addr, &values[..]);
+                        let mut buff = vec![0; MODBUS_HEADER_SIZE];
+                        buff.write_u8(0x01 as u8).unwrap();
+                        match ret {
+                            Ok(()) => {
+                                buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
+                            },
+                            Err(e) => {
+                                println!("something wrong {}", e);
+                                buff.write_u8(ExceptionCode::IllegalDataValue as u8).unwrap();
+                            }
+                        }
+                        write_response(&mut stream, header, &mut buff);
+                    },
+                    _ => {
+                    },
                 }
+
             }
-            Err(e) => Err(Error::Io(e)),
         }
-    }
-
-    fn validate_response_header(req: &Header, resp: &Header) -> Result<()> {
-        if req.tid != resp.tid || resp.pid != MODBUS_PROTOCOL_TCP {
-            Err(Error::InvalidResponse)
-        } else {
-            Ok(())
-        }
-    }
-
-    fn validate_response_code(req: &[u8], resp: &[u8]) -> Result<()> {
-        if req[7] + 0x80 == resp[7] {
-            match ExceptionCode::from_u8(resp[8]) {
-                Some(code) => Err(Error::Exception(code)),
-                None => Err(Error::InvalidResponse),
-            }
-        } else if req[7] == resp[7] {
-            Ok(())
-        } else {
-            Err(Error::InvalidResponse)
-        }
-    }
-
-    fn get_reply_data(reply: &[u8], expected_bytes: usize) -> Result<Vec<u8>> {
-        if reply[8] as usize != expected_bytes
-            || reply.len() != MODBUS_HEADER_SIZE + expected_bytes + 2
-        {
-            Err(Error::InvalidData(Reason::UnexpectedReplySize))
-        } else {
-            let mut d = Vec::new();
-            d.extend_from_slice(&reply[MODBUS_HEADER_SIZE + 2..]);
-            Ok(d)
-        }
-    }
-
-    fn write_single(self: &mut Self, fun: &Function) -> Result<()> {
-        let (addr, value) = match *fun {
-            Function::WriteSingleCoil(a, v) | Function::WriteSingleRegister(a, v) => (a, v),
-            _ => return Err(Error::InvalidFunction),
-        };
-
-        let mut buff = vec![0; MODBUS_HEADER_SIZE]; // Header gets filled in later
-        buff.write_u8(fun.code())?;
-        buff.write_u16::<BigEndian>(addr)?;
-        buff.write_u16::<BigEndian>(value)?;
-        self.write(&mut buff)
-    }
-
-    fn write_multiple(self: &mut Self, fun: &Function) -> Result<()> {
-        let (addr, quantity, values) = match *fun {
-            Function::WriteMultipleCoils(a, q, v) | Function::WriteMultipleRegisters(a, q, v) => {
-                (a, q, v)
-            }
-            _ => return Err(Error::InvalidFunction),
-        };
-
-        let mut buff = vec![0; MODBUS_HEADER_SIZE]; // Header gets filled in later
-        buff.write_u8(fun.code())?;
-        buff.write_u16::<BigEndian>(addr)?;
-        buff.write_u16::<BigEndian>(quantity)?;
-        buff.write_u8(values.len() as u8)?;
-        for v in values {
-            buff.write_u8(*v)?;
-        }
-        self.write(&mut buff)
-    }
-
-    fn write(self: &mut Self, buff: &mut [u8]) -> Result<()> {
-        if buff.is_empty() {
-            return Err(Error::InvalidData(Reason::SendBufferEmpty));
-        }
-
-        if buff.len() > MODBUS_MAX_PACKET_SIZE {
-            return Err(Error::InvalidData(Reason::SendBufferTooBig));
-        }
-
-        let header = Header::new(self, buff.len() as u16 + 1u16);
-        let head_buff = header.pack()?;
-        {
-            let mut start = Cursor::new(buff.borrow_mut());
-            start.write_all(&head_buff)?;
-        }
-        match self.stream.write_all(buff) {
-            Ok(_s) => {
-                let reply = &mut [0; 12];
-                match self.stream.read(reply) {
-                    Ok(_s) => {
-                        let resp_hd = Header::unpack(reply)?;
-                        Transport::validate_response_header(&header, &resp_hd)?;
-                        Transport::validate_response_code(buff, reply)
-                    }
-                    Err(e) => Err(Error::Io(e)),
-                }
-            }
-            Err(e) => Err(Error::Io(e)),
-        }
-    }
-
-    pub fn close(self: &mut Self) -> Result<()> {
-        self.stream.shutdown(Shutdown::Both).map_err(Error::Io)
     }
 }
 
-impl Requests for Transport {
-    /// Read `count` bits starting at address `addr`.
-    fn read_coils(self: &mut Self, addr: u16, count: u16) -> Result<Vec<Coil>> {
-        let bytes = self.read(&Function::ReadCoils(addr, count))?;
-        Ok(utils::unpack_bits(&bytes, count))
-    }
 
-    /// Read `count` input bits starting at address `addr`.
-    fn read_discrete_inputs(self: &mut Self, addr: u16, count: u16) -> Result<Vec<Coil>> {
-        let bytes = self.read(&Function::ReadDiscreteInputs(addr, count))?;
-        Ok(utils::unpack_bits(&bytes, count))
-    }
-
-    /// Read `count` 16bit registers starting at address `addr`.
-    fn read_holding_registers(self: &mut Self, addr: u16, count: u16) -> Result<Vec<u16>> {
-        let bytes = self.read(&Function::ReadHoldingRegisters(addr, count))?;
-        utils::pack_bytes(&bytes[..])
-    }
-
-    /// Read `count` 16bit input registers starting at address `addr`.
-    fn read_input_registers(self: &mut Self, addr: u16, count: u16) -> Result<Vec<u16>> {
-        let bytes = self.read(&Function::ReadInputRegisters(addr, count))?;
-        utils::pack_bytes(&bytes[..])
-    }
-
-    /// Write a single coil (bit) to address `addr`.
-    fn write_single_coil(self: &mut Self, addr: u16, value: Coil) -> Result<()> {
-        self.write_single(&Function::WriteSingleCoil(addr, value.code()))
-    }
-
-    /// Write a single 16bit register to address `addr`.
-    fn write_single_register(self: &mut Self, addr: u16, value: u16) -> Result<()> {
-        self.write_single(&Function::WriteSingleRegister(addr, value))
-    }
-
-    /// Write a multiple coils (bits) starting at address `addr`.
-    fn write_multiple_coils(self: &mut Self, addr: u16, values: &[Coil]) -> Result<()> {
-        let bytes = utils::pack_bits(values);
-        self.write_multiple(&Function::WriteMultipleCoils(
-            addr,
-            values.len() as u16,
-            &bytes,
-        ))
-    }
-
-    /// Write a multiple 16bit registers starting at address `addr`.
-    fn write_multiple_registers(self: &mut Self, addr: u16, values: &[u16]) -> Result<()> {
-        let bytes = utils::unpack_bytes(values);
-        self.write_multiple(&Function::WriteMultipleRegisters(
-            addr,
-            values.len() as u16,
-            &bytes,
-        ))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-
-    use super::*;
-
-    #[test]
-    fn serialize_header() {
-        let header = Header {
-            tid: 12816,
-            pid: 3930,
-            len: 99,
-            uid: 68,
-        };
-        let serialized = header.pack().unwrap();
-        let deserialized = Header::unpack(&vec![50, 16, 15, 90, 0, 99, 68]).unwrap();
-        let re_deserialized = Header::unpack(&serialized).unwrap();
-        assert_eq!(serialized, vec![50, 16, 15, 90, 0, 99, 68]);
-        assert_eq!(deserialized, header);
-        assert_eq!(re_deserialized, header);
-    }
-}

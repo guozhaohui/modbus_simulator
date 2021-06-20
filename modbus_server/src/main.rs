@@ -5,57 +5,43 @@ extern crate modbus_protocol;
 use clap::App;
 use clap::crate_version;
 use std::net::{Shutdown, TcpStream, TcpListener};
-use std::io::{Read};
 use std::{
     thread,
     sync::{Arc, Mutex},
 };
-use modbus_protocol::coils::Coil;
+use std::time::Duration;
+
+mod server_status;
+mod mbap;
+use server_status::StatusInfo;
 
 mod tcp;
-use tcp::Config;
-use tcp::MODBUS_MAX_PACKET_SIZE;
+const MODBUS_TCP_DEFAULT_PORT: u16 = 502;
 
-struct StatusInfo {
-    registers: Vec<u16>,
-    coils : Vec<Coil>,
+/// Config structure for more control over the tcp socket settings
+#[derive(Clone, Copy)]
+pub struct Config {
+    /// The TCP port to use for communication (Default: `502`)
+    pub tcp_port: u16,
+    /// Connection timeout for TCP socket (Default: `OS Default`)
+    pub tcp_connect_timeout: Option<Duration>,
+    /// Timeout when reading from the TCP socket (Default: `infinite`)
+    pub tcp_read_timeout: Option<Duration>,
+    /// Timeout when writing to the TCP socket (Default: `infinite`)
+    pub tcp_write_timeout: Option<Duration>,
+    /// The modbus Unit Identifier used in the modbus layer (Default: `1`)
+    pub modbus_uid: u8,
 }
 
-impl StatusInfo {
-    pub fn create(size: usize) -> StatusInfo {
-        let mut status_info = StatusInfo {
-                registers: Vec::with_capacity(size),
-                coils: Vec::with_capacity(size)
-        };
-        for i in 0..size {
-            status_info.registers[i] = 0;
+impl Default for Config {
+    fn default() -> Config {
+        Config {
+            tcp_port: MODBUS_TCP_DEFAULT_PORT,
+            tcp_connect_timeout: None,
+            tcp_read_timeout: None,
+            tcp_write_timeout: None,
+            modbus_uid: 1,
         }
-        for i in 0..size {
-            status_info.coils[i] = Coil::Off;
-        }
-        status_info
-    }
-
-    pub fn set_status(&mut self, offset: usize, value: u16) {
-        self.registers[offset] = value;
-    }
-}
-
-fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: Arc<Mutex<StatusInfo>>){
-    let mut data = [0 as u8; MODBUS_MAX_PACKET_SIZE];
-    while match stream.read(&mut data) {
-        Ok(size) => {
-            println!("received {:?} bytes", size);
-            true
-        }
-        Err(_) => {
-            println!("An error occurred, terminating connection with {}", stream.peer_addr().unwrap());
-            stream.shutdown(Shutdown::Both).unwrap();
-            false
-        }
-    } {
-        let mut _status = shared_status.lock().unwrap();
-        _status.set_status(14, 17);
     }
 }
 
@@ -97,7 +83,7 @@ fn main() {
                 println!("new client: {:?}", _socket.peer_addr().unwrap());
                 let my_status = status_info.clone();
                 children.push(thread::spawn(move|| {
-                    handle_client(_socket, tid, uid, my_status)
+                    tcp::handle_client(_socket, tid, uid, my_status)
                 }));
             }
             Err(e) => {
