@@ -4,7 +4,7 @@ extern crate clap;
 extern crate modbus_protocol;
 use clap::App;
 use clap::crate_version;
-use std::net::{Shutdown, TcpStream, TcpListener};
+use std::net::{TcpListener};
 use std::{
     thread,
     sync::{Arc, Mutex},

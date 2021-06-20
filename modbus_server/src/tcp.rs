@@ -11,7 +11,7 @@ use std::borrow::BorrowMut;
 use modbus_protocol::coils::Coil;
 // use modbus_protocol::function_code::Function;
 use modbus_protocol::requests::Requests;
-use modbus_protocol::exception_code::{Error, ExceptionCode, Reason, Result};
+use modbus_protocol::exception_code::{ExceptionCode};
 use super::server_status::StatusInfo;
 use super::mbap::Header;
 use super::mbap::MODBUS_HEADER_SIZE;
@@ -30,12 +30,18 @@ fn write_response(stream: &mut TcpStream, header: Header,  buff: &mut [u8]) {
     let head_buff = header.pack();
     {
         let mut start = Cursor::new(buff.borrow_mut());
-        start.write_all(&head_buff.unwrap());
+        let ret = start.write_all(&head_buff.unwrap());
+        match ret {
+            Ok(_s) => {
+            },
+            Err(_e) => {
+            },
+        }
     }
     match stream.write_all(buff) {
         Ok(_s) => {
         },
-        Err(e) => {
+        Err(_e) => {
         },
     }
 }
@@ -123,7 +129,6 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                         let count = mbdata.read_u16::<BigEndian>().unwrap();
                         let ret = _status.read_input_registers(addr, count);
                         let mut buff = vec![0; MODBUS_HEADER_SIZE];
-                        buff.write_u8(0x01 as u8).unwrap();
                         match ret {
                             Ok(registers) => {
                                 buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
@@ -180,7 +185,6 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                         }
                         let ret = _status.write_multiple_coils(addr, &values[..]);
                         let mut buff = vec![0; MODBUS_HEADER_SIZE];
-                        buff.write_u8(0x01 as u8).unwrap();
                         match ret {
                             Ok(()) => {
                                 buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
@@ -201,7 +205,6 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                         }
                         let ret = _status.write_multiple_registers(addr, &values[..]);
                         let mut buff = vec![0; MODBUS_HEADER_SIZE];
-                        buff.write_u8(0x01 as u8).unwrap();
                         match ret {
                             Ok(()) => {
                                 buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();

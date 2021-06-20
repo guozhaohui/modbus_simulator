@@ -123,7 +123,7 @@ impl Transport {
     }
 
     /// Set the unit identifier.
-    pub fn set_uid(&mut self, uid: u8) {
+    pub fn _set_uid(&mut self, uid: u8) {
         self.uid = uid;
     }
     // Create a new transaction Id, incrementing the previous one.
@@ -272,7 +272,7 @@ impl Transport {
         }
     }
 
-    pub fn close(self: &mut Self) -> Result<()> {
+    pub fn _close(self: &mut Self) -> Result<()> {
         self.stream.shutdown(Shutdown::Both).map_err(Error::Io)
     }
 }
