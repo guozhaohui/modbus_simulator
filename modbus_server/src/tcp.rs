@@ -1,7 +1,8 @@
-extern crate enum_primitive_derive;
+extern crate num_derive;
 extern crate num_traits;
 extern crate clap;
 extern crate modbus_protocol;
+use num_traits::FromPrimitive;
 use std::net::{Shutdown, TcpStream};
 use std::io::{Cursor, Read, Write};
 use std::sync::{Arc, Mutex};
@@ -9,7 +10,7 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::borrow::BorrowMut;
 
 use modbus_protocol::coils::Coil;
-// use modbus_protocol::function_code::Function;
+use modbus_protocol::function_code::FunctionCode;
 use modbus_protocol::requests::Requests;
 use modbus_protocol::exception_code::{ExceptionCode};
 use super::server_status::StatusInfo;
@@ -63,8 +64,8 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                 let header = Header::unpack(data).unwrap();
                 let mut mbdata = &data[MODBUS_HEADER_SIZE + 2..];
                 let code = mbdata.read_u8().unwrap();
-                match code {
-                    0x01 =>{
+                match FromPrimitive::from_u8(code) {
+                    Some(FunctionCode::ReadCoils) =>{
                         let addr= mbdata.read_u16::<BigEndian>().unwrap();
                         let count = mbdata.read_u16::<BigEndian>().unwrap();
                         let ret = _status.read_coils(addr, count);
@@ -84,7 +85,7 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                         }
                         write_response(&mut stream, header, &mut buff);
                     },
-                    0x02 =>{
+                    Some(FunctionCode::ReadDiscreteInputs) =>{
                         let addr= mbdata.read_u16::<BigEndian>().unwrap();
                         let count = mbdata.read_u16::<BigEndian>().unwrap();
                         let ret = _status.read_discrete_inputs(addr, count);
@@ -104,7 +105,7 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                         }
                         write_response(&mut stream, header, &mut buff);
                     },
-                    0x03 =>{
+                    Some(FunctionCode::ReadHoldingRegisters) =>{
                         let addr= mbdata.read_u16::<BigEndian>().unwrap();
                         let count = mbdata.read_u16::<BigEndian>().unwrap();
                         let ret = _status.read_holding_registers(addr, count);
@@ -124,7 +125,7 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                         }
                         write_response(&mut stream, header, &mut buff);
                     },
-                    0x04 =>{
+                    Some(FunctionCode::ReadInputRegisters) =>{
                         let addr= mbdata.read_u16::<BigEndian>().unwrap();
                         let count = mbdata.read_u16::<BigEndian>().unwrap();
                         let ret = _status.read_input_registers(addr, count);
@@ -144,7 +145,7 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                         }
                         write_response(&mut stream, header, &mut buff);
                     },
-                    0x05 => {
+                    Some(FunctionCode::WriteSingleCoil) => {
                         let addr= mbdata.read_u16::<BigEndian>().unwrap();
                         let value = mbdata.read_u16::<BigEndian>().unwrap();
                         let ret = _status.write_single_coil(addr, Coil::from_u16(value).unwrap());
@@ -160,7 +161,7 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                         }
                         write_response(&mut stream, header, &mut buff);
                     },
-                    0x06 => {
+                    Some(FunctionCode::WriteSingleRegister) => {
                         let addr= mbdata.read_u16::<BigEndian>().unwrap();
                         let value = mbdata.read_u16::<BigEndian>().unwrap();
                         let ret = _status.write_single_register(addr, value);
@@ -176,7 +177,7 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                         }
                         write_response(&mut stream, header, &mut buff);
                     },
-                    0x0f => {
+                    Some(FunctionCode::WriteMultipleCoils) => {
                         let addr= mbdata.read_u16::<BigEndian>().unwrap();
                         let count = mbdata.read_u16::<BigEndian>().unwrap();
                         let mut values :Vec<Coil> = Vec::with_capacity(count as usize);
@@ -196,7 +197,7 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                         }
                         write_response(&mut stream, header, &mut buff);
                     },
-                    0x10 => {
+                    Some(FunctionCode::WriteMultipleRegisters) => {
                         let addr= mbdata.read_u16::<BigEndian>().unwrap();
                         let count = mbdata.read_u16::<BigEndian>().unwrap();
                         let mut values :Vec<u16> = Vec::with_capacity(count as usize);

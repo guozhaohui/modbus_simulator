@@ -1,4 +1,4 @@
-extern crate enum_primitive_derive;
+extern crate num_derive;
 extern crate num_traits;
 extern crate clap;
 extern crate modbus_protocol;

@@ -13,7 +13,7 @@ pub struct Header {
 }
 
 impl Header {
-    pub fn _new(tid: u16, uid: u8, len: u16) -> Header {
+    pub fn new(tid: u16, uid: u8, len: u16) -> Header {
         Header {
             tid: tid,
             pid: MODBUS_PROTOCOL_TCP,
@@ -74,6 +74,13 @@ mod tests {
         assert_eq!(serialized, vec![50, 16, 15, 90, 0, 99, 68]);
         assert_eq!(deserialized, header);
         assert_eq!(re_deserialized, header);
+    }
+
+    #[test]
+    fn create_header() {
+        let header = Header::new(1u16, 10u8, 100u16);
+        assert_eq!(header.pid, 0u16);
+        assert_eq!(header.len, (100-7) as u16);
     }
 }
 

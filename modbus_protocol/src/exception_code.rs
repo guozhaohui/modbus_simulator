@@ -1,7 +1,9 @@
+use num_derive::FromPrimitive;
+
 use std::fmt;
 use std::io;
 
-#[derive(Debug, PartialEq, Primitive)]
+#[derive(Debug, PartialEq, FromPrimitive)]
 /// Modbus exception codes returned from the server.
 pub enum ExceptionCode {
     IllegalFunction         = 0x01,

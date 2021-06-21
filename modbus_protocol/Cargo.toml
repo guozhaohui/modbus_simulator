@@ -8,5 +8,5 @@ edition = "2018"
 
 [dependencies]
 byteorder = "1"
-enum-primitive-derive = "^0.1"
-num-traits = "^0.1"
+num-derive = "^0.2"
+num-traits = "^0.2"

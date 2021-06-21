@@ -1,6 +1,19 @@
+use num_derive::FromPrimitive;
 pub type Address = u16;
 pub type Quantity = u16;
 pub type Value = u16;
+
+#[derive(FromPrimitive)]
+pub enum FunctionCode{
+    ReadCoils = 0x01,
+    ReadDiscreteInputs = 0x02,
+    ReadHoldingRegisters = 0x03,
+    ReadInputRegisters = 0x04,
+    WriteSingleCoil = 0x05,
+    WriteSingleRegister = 0x06,
+    WriteMultipleCoils = 0x0f,
+    WriteMultipleRegisters = 0x10,
+}
 
 pub enum Function<'a> {
     ReadCoils(Address, Quantity),
