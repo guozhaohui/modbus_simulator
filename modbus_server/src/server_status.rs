@@ -23,9 +23,6 @@ impl StatusInfo {
         status_info
     }
 
-    pub fn set_status(&mut self, offset: usize, value: u16) {
-        self.registers[offset] = value;
-    }
 }
 
 impl Requests for StatusInfo {

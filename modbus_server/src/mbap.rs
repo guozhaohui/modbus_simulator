@@ -6,10 +6,10 @@ const MODBUS_PROTOCOL_TCP: u16 = 0x0000;
 pub const MODBUS_HEADER_SIZE: usize = 7;
 #[derive(Debug, PartialEq)]
 pub struct Header {
-    tid: u16,
-    pid: u16,
-    len: u16,
-    uid: u8,
+    pub tid: u16,
+    pub pid: u16,
+    pub len: u16,
+    pub uid: u8,
 }
 
 impl Header {

@@ -28,16 +28,17 @@ fn write_response(stream: &mut TcpStream, header: Header,  buff: &mut [u8]) {
         return;
     }
 
-    let head_buff = header.pack();
-    {
-        let mut start = Cursor::new(buff.borrow_mut());
-        let ret = start.write_all(&head_buff.unwrap());
-        match ret {
-            Ok(_s) => {
-            },
-            Err(_e) => {
-            },
-        }
+    let reply_header = Header::new(header.tid,
+                                   header.uid,
+                                   buff.len() as u16);
+
+    let head_buff = reply_header.pack();
+    let mut start = Cursor::new(buff.borrow_mut());
+    match start.write_all(&head_buff.unwrap()) {
+        Ok(_s) => {
+        },
+        Err(_e) => {
+        },
     }
     match stream.write_all(buff) {
         Ok(_s) => {
@@ -60,14 +61,13 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
             Ok(size) => {
                 println!("received {:?} bytes", size);
                 let mut _status = shared_status.lock().unwrap();
-                _status.set_status(14, 17);
-                let header = Header::unpack(data).unwrap();
-                let mut mbdata = &data[MODBUS_HEADER_SIZE + 2..];
-                let code = mbdata.read_u8().unwrap();
-                match FromPrimitive::from_u8(code) {
+                let mbap_header = Header::unpack(data).unwrap();
+                let mut pdu_data = &data[MODBUS_HEADER_SIZE..];
+                let function_code = pdu_data.read_u8().unwrap();
+                match FromPrimitive::from_u8(function_code) {
                     Some(FunctionCode::ReadCoils) =>{
-                        let addr= mbdata.read_u16::<BigEndian>().unwrap();
-                        let count = mbdata.read_u16::<BigEndian>().unwrap();
+                        let addr= pdu_data.read_u16::<BigEndian>().unwrap();
+                        let count = pdu_data.read_u16::<BigEndian>().unwrap();
                         let ret = _status.read_coils(addr, count);
                         let mut buff = vec![0; MODBUS_HEADER_SIZE];
                         match ret {
@@ -83,11 +83,11 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                                 buff.write_u8(ExceptionCode::IllegalDataValue as u8).unwrap();
                             }
                         }
-                        write_response(&mut stream, header, &mut buff);
+                        write_response(&mut stream, mbap_header, &mut buff);
                     },
                     Some(FunctionCode::ReadDiscreteInputs) =>{
-                        let addr= mbdata.read_u16::<BigEndian>().unwrap();
-                        let count = mbdata.read_u16::<BigEndian>().unwrap();
+                        let addr= pdu_data.read_u16::<BigEndian>().unwrap();
+                        let count = pdu_data.read_u16::<BigEndian>().unwrap();
                         let ret = _status.read_discrete_inputs(addr, count);
                         let mut buff = vec![0; MODBUS_HEADER_SIZE];
                         match ret {
@@ -103,11 +103,11 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                                 buff.write_u8(ExceptionCode::IllegalDataValue as u8).unwrap();
                             }
                         }
-                        write_response(&mut stream, header, &mut buff);
+                        write_response(&mut stream, mbap_header, &mut buff);
                     },
                     Some(FunctionCode::ReadHoldingRegisters) =>{
-                        let addr= mbdata.read_u16::<BigEndian>().unwrap();
-                        let count = mbdata.read_u16::<BigEndian>().unwrap();
+                        let addr= pdu_data.read_u16::<BigEndian>().unwrap();
+                        let count = pdu_data.read_u16::<BigEndian>().unwrap();
                         let ret = _status.read_holding_registers(addr, count);
                         let mut buff = vec![0; MODBUS_HEADER_SIZE];
                         match ret {
@@ -123,11 +123,11 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                                 buff.write_u8(ExceptionCode::IllegalDataValue as u8).unwrap();
                             }
                         }
-                        write_response(&mut stream, header, &mut buff);
+                        write_response(&mut stream, mbap_header, &mut buff);
                     },
                     Some(FunctionCode::ReadInputRegisters) =>{
-                        let addr= mbdata.read_u16::<BigEndian>().unwrap();
-                        let count = mbdata.read_u16::<BigEndian>().unwrap();
+                        let addr= pdu_data.read_u16::<BigEndian>().unwrap();
+                        let count = pdu_data.read_u16::<BigEndian>().unwrap();
                         let ret = _status.read_input_registers(addr, count);
                         let mut buff = vec![0; MODBUS_HEADER_SIZE];
                         match ret {
@@ -143,11 +143,11 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                                 buff.write_u8(ExceptionCode::IllegalDataValue as u8).unwrap();
                             }
                         }
-                        write_response(&mut stream, header, &mut buff);
+                        write_response(&mut stream, mbap_header, &mut buff);
                     },
                     Some(FunctionCode::WriteSingleCoil) => {
-                        let addr= mbdata.read_u16::<BigEndian>().unwrap();
-                        let value = mbdata.read_u16::<BigEndian>().unwrap();
+                        let addr= pdu_data.read_u16::<BigEndian>().unwrap();
+                        let value = pdu_data.read_u16::<BigEndian>().unwrap();
                         let ret = _status.write_single_coil(addr, Coil::from_u16(value).unwrap());
                         let mut buff = vec![0; MODBUS_HEADER_SIZE];
                         match ret {
@@ -159,11 +159,11 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                                 buff.write_u8(ExceptionCode::IllegalDataValue as u8).unwrap();
                             }
                         }
-                        write_response(&mut stream, header, &mut buff);
+                        write_response(&mut stream, mbap_header, &mut buff);
                     },
                     Some(FunctionCode::WriteSingleRegister) => {
-                        let addr= mbdata.read_u16::<BigEndian>().unwrap();
-                        let value = mbdata.read_u16::<BigEndian>().unwrap();
+                        let addr= pdu_data.read_u16::<BigEndian>().unwrap();
+                        let value = pdu_data.read_u16::<BigEndian>().unwrap();
                         let ret = _status.write_single_register(addr, value);
                         let mut buff = vec![0; MODBUS_HEADER_SIZE];
                         match ret {
@@ -175,14 +175,14 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                                 buff.write_u8(ExceptionCode::IllegalDataValue as u8).unwrap();
                             }
                         }
-                        write_response(&mut stream, header, &mut buff);
+                        write_response(&mut stream, mbap_header, &mut buff);
                     },
                     Some(FunctionCode::WriteMultipleCoils) => {
-                        let addr= mbdata.read_u16::<BigEndian>().unwrap();
-                        let count = mbdata.read_u16::<BigEndian>().unwrap();
+                        let addr= pdu_data.read_u16::<BigEndian>().unwrap();
+                        let count = pdu_data.read_u16::<BigEndian>().unwrap();
                         let mut values :Vec<Coil> = Vec::with_capacity(count as usize);
                         for i in 0..count-1 {
-                            values[i as usize] = Coil::from_u16(mbdata.read_u16::<BigEndian>().unwrap()).unwrap();
+                            values[i as usize] = Coil::from_u16(pdu_data.read_u16::<BigEndian>().unwrap()).unwrap();
                         }
                         let ret = _status.write_multiple_coils(addr, &values[..]);
                         let mut buff = vec![0; MODBUS_HEADER_SIZE];
@@ -195,14 +195,14 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                                 buff.write_u8(ExceptionCode::IllegalDataValue as u8).unwrap();
                             }
                         }
-                        write_response(&mut stream, header, &mut buff);
+                        write_response(&mut stream, mbap_header, &mut buff);
                     },
                     Some(FunctionCode::WriteMultipleRegisters) => {
-                        let addr= mbdata.read_u16::<BigEndian>().unwrap();
-                        let count = mbdata.read_u16::<BigEndian>().unwrap();
+                        let addr= pdu_data.read_u16::<BigEndian>().unwrap();
+                        let count = pdu_data.read_u16::<BigEndian>().unwrap();
                         let mut values :Vec<u16> = Vec::with_capacity(count as usize);
                         for i in 0..count-1 {
-                            values[i as usize] = mbdata.read_u16::<BigEndian>().unwrap();
+                            values[i as usize] = pdu_data.read_u16::<BigEndian>().unwrap();
                         }
                         let ret = _status.write_multiple_registers(addr, &values[..]);
                         let mut buff = vec![0; MODBUS_HEADER_SIZE];
@@ -215,7 +215,7 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                                 buff.write_u8(ExceptionCode::IllegalDataValue as u8).unwrap();
                             }
                         }
-                        write_response(&mut stream, header, &mut buff);
+                        write_response(&mut stream, mbap_header, &mut buff);
                     },
                     _ => {
                     },
