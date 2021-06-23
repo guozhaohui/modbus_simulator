@@ -68,9 +68,8 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                     Some(FunctionCode::ReadCoils) =>{
                         let addr= pdu_data.read_u16::<BigEndian>().unwrap();
                         let count = pdu_data.read_u16::<BigEndian>().unwrap();
-                        let ret = _status.read_coils(addr, count);
                         let mut buff = vec![0; MODBUS_HEADER_SIZE];
-                        match ret {
+                        match _status.read_coils(addr, count) {
                             Ok(coils) => {
                                 buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
                                 buff.write_u8(coils.len() as u8).unwrap();
@@ -88,9 +87,8 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                     Some(FunctionCode::ReadDiscreteInputs) =>{
                         let addr= pdu_data.read_u16::<BigEndian>().unwrap();
                         let count = pdu_data.read_u16::<BigEndian>().unwrap();
-                        let ret = _status.read_discrete_inputs(addr, count);
                         let mut buff = vec![0; MODBUS_HEADER_SIZE];
-                        match ret {
+                        match _status.read_discrete_inputs(addr, count) {
                             Ok(coils) => {
                                 buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
                                 buff.write_u8(coils.len() as u8).unwrap();
@@ -108,9 +106,8 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                     Some(FunctionCode::ReadHoldingRegisters) =>{
                         let addr= pdu_data.read_u16::<BigEndian>().unwrap();
                         let count = pdu_data.read_u16::<BigEndian>().unwrap();
-                        let ret = _status.read_holding_registers(addr, count);
                         let mut buff = vec![0; MODBUS_HEADER_SIZE];
-                        match ret {
+                        match _status.read_holding_registers(addr, count) {
                             Ok(registers) => {
                                 buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
                                 buff.write_u8(registers.len() as u8).unwrap();
@@ -128,9 +125,8 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                     Some(FunctionCode::ReadInputRegisters) =>{
                         let addr= pdu_data.read_u16::<BigEndian>().unwrap();
                         let count = pdu_data.read_u16::<BigEndian>().unwrap();
-                        let ret = _status.read_input_registers(addr, count);
                         let mut buff = vec![0; MODBUS_HEADER_SIZE];
-                        match ret {
+                        match _status.read_input_registers(addr, count) {
                             Ok(registers) => {
                                 buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
                                 buff.write_u8(registers.len() as u8).unwrap();
@@ -148,9 +144,8 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                     Some(FunctionCode::WriteSingleCoil) => {
                         let addr= pdu_data.read_u16::<BigEndian>().unwrap();
                         let value = pdu_data.read_u16::<BigEndian>().unwrap();
-                        let ret = _status.write_single_coil(addr, Coil::from_u16(value).unwrap());
                         let mut buff = vec![0; MODBUS_HEADER_SIZE];
-                        match ret {
+                        match _status.write_single_coil(addr, Coil::from_u16(value).unwrap()) {
                             Ok(()) => {
                                 buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
                             },
@@ -164,9 +159,8 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                     Some(FunctionCode::WriteSingleRegister) => {
                         let addr= pdu_data.read_u16::<BigEndian>().unwrap();
                         let value = pdu_data.read_u16::<BigEndian>().unwrap();
-                        let ret = _status.write_single_register(addr, value);
                         let mut buff = vec![0; MODBUS_HEADER_SIZE];
-                        match ret {
+                        match _status.write_single_register(addr, value) {
                             Ok(()) => {
                                 buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
                             },
@@ -184,9 +178,8 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                         for i in 0..count-1 {
                             values[i as usize] = Coil::from_u16(pdu_data.read_u16::<BigEndian>().unwrap()).unwrap();
                         }
-                        let ret = _status.write_multiple_coils(addr, &values[..]);
                         let mut buff = vec![0; MODBUS_HEADER_SIZE];
-                        match ret {
+                        match _status.write_multiple_coils(addr, &values[..]) {
                             Ok(()) => {
                                 buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
                             },
@@ -204,9 +197,8 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                         for i in 0..count-1 {
                             values[i as usize] = pdu_data.read_u16::<BigEndian>().unwrap();
                         }
-                        let ret = _status.write_multiple_registers(addr, &values[..]);
                         let mut buff = vec![0; MODBUS_HEADER_SIZE];
-                        match ret {
+                        match _status.write_multiple_registers(addr, &values[..]) {
                             Ok(()) => {
                                 buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
                             },

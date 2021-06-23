@@ -30,6 +30,7 @@ pub enum Reason {
     DecodingError,
     EncodingError,
     InvalidByteorder,
+    InvalidRequestParameter,
     Custom(String),
 }
 
