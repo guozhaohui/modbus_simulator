@@ -10,17 +10,9 @@ pub struct StatusInfo {
 
 impl StatusInfo {
     pub fn create(size: usize) -> StatusInfo {
-        let mut status_info = StatusInfo {
-                registers: Vec::with_capacity(size),
-                coils: Vec::with_capacity(size)
-        };
-        for i in 0..size {
-            status_info.registers[i] = 0;
-        }
-        for i in 0..size {
-            status_info.coils[i] = Coil::Off;
-        }
-        status_info
+        let coils = vec![Coil::Off; size];
+        let registers = vec![0u16; size];
+        StatusInfo{coils: coils, registers: registers}
     }
 }
 
@@ -30,7 +22,7 @@ impl Requests for StatusInfo {
         if  (addr + count + 1) as usize > self.coils.len() {
             return Err(Error::InvalidData(Reason::InvalidRequestParameter));
         }
-        let mut coils: Vec<Coil> = Vec::with_capacity(count as usize);
+        let mut coils: Vec<Coil> = vec![Coil::Off; count as usize];
         coils.clone_from_slice(&self.coils[addr as usize..(addr+count) as usize]);
         Ok(coils)
     }
@@ -40,7 +32,7 @@ impl Requests for StatusInfo {
         if  (addr + count + 1) as usize > self.coils.len() {
             return Err(Error::InvalidData(Reason::InvalidRequestParameter));
         }
-        let mut coils: Vec<Coil> = Vec::with_capacity(count as usize);
+        let mut coils: Vec<Coil> = vec![Coil::Off; count as usize];
         coils.clone_from_slice(&self.coils[addr as usize..(addr+count) as usize]);
         Ok(coils)
     }
@@ -50,7 +42,7 @@ impl Requests for StatusInfo {
         if  (addr + count + 1) as usize > self.registers.len() {
             return Err(Error::InvalidData(Reason::InvalidRequestParameter));
         }
-        let mut registers: Vec<u16> = Vec::with_capacity(count as usize);
+        let mut registers: Vec<u16> = vec![0u16; count as usize];
         registers.clone_from_slice(&self.registers[addr as usize..(addr+count) as usize]);
         Ok(registers)
     }
@@ -60,7 +52,7 @@ impl Requests for StatusInfo {
         if  (addr + count + 1) as usize > self.registers.len() {
             return Err(Error::InvalidData(Reason::InvalidRequestParameter));
         }
-        let mut registers: Vec<u16> = Vec::with_capacity(count as usize);
+        let mut registers: Vec<u16> = vec![0u16; count as usize];
         registers.clone_from_slice(&self.registers[addr as usize..(addr+count) as usize]);
         Ok(registers)
     }
@@ -89,7 +81,7 @@ impl Requests for StatusInfo {
         if  (addr + 1) as usize + n > self.coils.len() {
             return Err(Error::InvalidData(Reason::InvalidRequestParameter));
         }
-        for i in 0..n-1 {
+        for i in 0..n {
             self.coils[i + addr as usize] = values[i];
         }
         return Ok(())
@@ -101,10 +93,96 @@ impl Requests for StatusInfo {
         if  (addr + 1) as usize + n > self.registers.len() {
             return Err(Error::InvalidData(Reason::InvalidRequestParameter));
         }
-        for i in 0..n-1 {
+        for i in 0..n {
             self.registers[i + addr as usize] = values[i];
         }
         return Ok(())
     }
 }
 
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_server_initializaion(){
+        let mut status_info = StatusInfo::create(10usize);
+        match status_info.read_coils(7u16, 2u16) {
+            Ok(coils) => {
+                assert_eq!(coils, [Coil::Off, Coil::Off]);
+            },
+            Err(_e) => {
+                assert!(false);
+            },
+        }
+        match status_info.read_holding_registers(6u16, 3u16) {
+            Ok(registers) => {
+                assert_eq!(registers, [0u16, 0u16, 0u16]);
+            },
+            Err(_e) => {
+                assert!(false);
+            },
+        }
+    }
+    #[test]
+    fn test_server_invalid_param1(){
+        let mut status_info = StatusInfo::create(10usize);
+        match status_info.read_coils(7u16, 3u16) {
+            Ok(_coils) => {
+                assert!(false);
+            },
+            Err(_e) => {
+                assert!(true);
+            },
+        }
+        match status_info.read_holding_registers(7u16, 3u16) {
+            Ok(_registers) => {
+                assert!(false);
+            },
+            Err(_e) => {
+                assert!(true);
+            },
+        }
+    }
+    #[test]
+    fn test_server_writeread(){
+        let mut status_info = StatusInfo::create(10usize);
+        // test coils write/read
+        let coils = vec![Coil::On, Coil::On, Coil::On];
+        match status_info.write_multiple_coils(6u16, &coils) {
+            Ok(()) => {
+                assert!(true);
+            },
+            Err(_e) => {
+                assert!(false);
+            },
+        }
+        match status_info.read_coils(6u16, 3u16) {
+            Ok(_coils) => {
+                assert_eq!(_coils, coils);
+            },
+            Err(_e) => {
+                assert!(false);
+            },
+        }
+        // test registers write/read
+        let regs = vec![1u16, 2u16, 3u16];
+        match status_info.write_multiple_registers(6u16, &regs) {
+            Ok(()) => {
+                assert!(true);
+            },
+            Err(_e) => {
+                assert!(false);
+            },
+        }
+        match status_info.read_holding_registers(6u16, 3u16) {
+            Ok(registers) => {
+                assert_eq!(registers, regs);
+            },
+            Err(_e) => {
+                assert!(true);
+            },
+        }
+    }
+}

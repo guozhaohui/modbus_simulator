@@ -20,7 +20,7 @@ pub enum ExceptionCode {
 }
 
 /// `InvalidData` reasons
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Reason {
     UnexpectedReplySize,
     BytecountNotEven,
