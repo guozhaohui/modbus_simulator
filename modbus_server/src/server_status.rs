@@ -1,12 +1,12 @@
 extern crate modbus_protocol;
-use modbus_protocol::exception_code::{Result, Error, Reason, ExceptionCode};
+use modbus_protocol::exception_code::{Result, Error, ExceptionCode};
 use modbus_protocol::coils::Coil;
 use modbus_protocol::requests::Requests;
 
 enum ModbusRegisterType{
     Coil = 0x01,
     DiscreteInput = 0x02,
-    InputRegisters = 0x04,
+    InputRegister = 0x04,
     HoldingRegister = 0x03,
 }
 
@@ -43,7 +43,7 @@ impl StatusInfo {
                 }
                 return Ok(addr - (1 * self.capacity));
             }
-            ModbusRegisterType::InputRegisters => {
+            ModbusRegisterType::InputRegister => {
                 if addr < 2 * self.capacity || addr > 3 * self.capacity {
                     return Err(Error::Exception(ExceptionCode::IllegalDataAddress));
                 }
@@ -57,15 +57,42 @@ impl StatusInfo {
             }
         }
     }
+    fn check_range(self: &Self, register_type: ModbusRegisterType, addr: u16, count: u16) -> Result<()> {
+        match register_type {
+            ModbusRegisterType::Coil => {
+                if  (addr + count + 1) as usize > self.coils.len() {
+                    return Err(Error::Exception(ExceptionCode::IllegalDataAddress));
+                }
+                return Ok(());
+            }
+            ModbusRegisterType::DiscreteInput => {
+                if  (addr + count + 1) as usize > self.discrete_inputs.len() {
+                    return Err(Error::Exception(ExceptionCode::IllegalDataAddress));
+                }
+                return Ok(());
+            }
+            ModbusRegisterType::InputRegister => {
+                if  (addr + count + 1) as usize > self.input_registers.len() {
+                    return Err(Error::Exception(ExceptionCode::IllegalDataAddress));
+                }
+                return Ok(());
+            }
+            ModbusRegisterType::HoldingRegister => {
+                if  (addr + count + 1) as usize > self.holding_registers.len() {
+                    return Err(Error::Exception(ExceptionCode::IllegalDataAddress));
+                }
+                return Ok(());
+            }
+        }
+    }
 }
 
 impl Requests for StatusInfo {
     /// Read `count` bits starting at address `addr`.
     fn read_coils(self: &mut Self, addr: u16, count: u16) -> Result<Vec<Coil>> {
         let address = self.convert_addr_to_index(ModbusRegisterType::Coil, addr)?;
-        if  (address + count + 1) as usize > self.coils.len() {
-            return Err(Error::InvalidData(Reason::InvalidRequestParameter));
-        }
+        self.check_range(ModbusRegisterType::Coil, address, count)?;
+
         let mut coils: Vec<Coil> = vec![Coil::Off; count as usize];
         coils.clone_from_slice(&self.coils[(address) as usize..(address+count) as usize]);
         Ok(coils)
@@ -74,9 +101,8 @@ impl Requests for StatusInfo {
     /// Read `count` input bits starting at address `addr`.
     fn read_discrete_inputs(self: &mut Self, addr: u16, count: u16) -> Result<Vec<Coil>> {
         let address = self.convert_addr_to_index(ModbusRegisterType::DiscreteInput, addr)?;
-        if  (address + count + 1) as usize > self.coils.len() {
-            return Err(Error::InvalidData(Reason::InvalidRequestParameter));
-        }
+        self.check_range(ModbusRegisterType::DiscreteInput, address, count)?;
+
         let mut coils: Vec<Coil> = vec![Coil::Off; count as usize];
         coils.clone_from_slice(&self.discrete_inputs[address as usize..(address+count) as usize]);
         Ok(coils)
@@ -85,9 +111,8 @@ impl Requests for StatusInfo {
     /// Read `count` 16bit registers starting at address `addr`.
     fn read_holding_registers(self: &mut Self, addr: u16, count: u16) -> Result<Vec<u16>> {
         let address = self.convert_addr_to_index(ModbusRegisterType::HoldingRegister, addr)?;
-        if  (address + count + 1) as usize > self.holding_registers.len() {
-            return Err(Error::InvalidData(Reason::InvalidRequestParameter));
-        }
+        self.check_range(ModbusRegisterType::HoldingRegister, address, count)?;
+
         let mut registers: Vec<u16> = vec![0u16; count as usize];
         registers.clone_from_slice(&self.holding_registers[address as usize..(address+count) as usize]);
         Ok(registers)
@@ -95,10 +120,9 @@ impl Requests for StatusInfo {
 
     /// Read `count` 16bit input registers starting at address `addr`.
     fn read_input_registers(self: &mut Self, addr: u16, count: u16) -> Result<Vec<u16>> {
-        let address = self.convert_addr_to_index(ModbusRegisterType::InputRegisters, addr)?;
-        if  (address + count + 1) as usize > self.input_registers.len() {
-            return Err(Error::InvalidData(Reason::InvalidRequestParameter));
-        }
+        let address = self.convert_addr_to_index(ModbusRegisterType::InputRegister, addr)?;
+        self.check_range(ModbusRegisterType::InputRegister, address, count)?;
+
         let mut registers: Vec<u16> = vec![0u16; count as usize];
         registers.clone_from_slice(&self.input_registers[address as usize..(address+count) as usize]);
         Ok(registers)
@@ -107,9 +131,8 @@ impl Requests for StatusInfo {
     /// Write a single coil (bit) to address `addr`.
     fn write_single_coil(self: &mut Self, addr: u16, value: Coil) -> Result<()> {
         let address = self.convert_addr_to_index(ModbusRegisterType::Coil, addr)?;
-        if  (address + 1) as usize > self.coils.len() {
-            return Err(Error::InvalidData(Reason::InvalidRequestParameter));
-        }
+        self.check_range(ModbusRegisterType::Coil, address, 1)?;
+
         self.coils[address as usize] = value;
         return Ok(())
     }
@@ -117,9 +140,8 @@ impl Requests for StatusInfo {
     /// Write a single 16bit register to address `addr`.
     fn write_single_register(self: &mut Self, addr: u16, value: u16) -> Result<()> {
         let address = self.convert_addr_to_index(ModbusRegisterType::HoldingRegister, addr)?;
-        if  (address + 1) as usize > self.holding_registers.len() {
-            return Err(Error::InvalidData(Reason::InvalidRequestParameter));
-        }
+        self.check_range(ModbusRegisterType::HoldingRegister, address, 1)?;
+
         self.holding_registers[address as usize] = value;
         return Ok(())
     }
@@ -128,9 +150,8 @@ impl Requests for StatusInfo {
     fn write_multiple_coils(self: &mut Self, addr: u16, values: &[Coil]) -> Result<()> {
         let address = self.convert_addr_to_index(ModbusRegisterType::Coil, addr)?;
         let n = values.len();
-        if  (address + 1) as usize + n > self.coils.len() {
-            return Err(Error::InvalidData(Reason::InvalidRequestParameter));
-        }
+        self.check_range(ModbusRegisterType::Coil, address, n as u16)?;
+
         for i in 0..n {
             self.coils[i + address as usize] = values[i];
         }
@@ -141,9 +162,8 @@ impl Requests for StatusInfo {
     fn write_multiple_registers(self: &mut Self, addr: u16, values: &[u16]) -> Result<()> {
         let address = self.convert_addr_to_index(ModbusRegisterType::HoldingRegister, addr)?;
         let n = values.len();
-        if  (address + 1) as usize + n > self.holding_registers.len() {
-            return Err(Error::InvalidData(Reason::InvalidRequestParameter));
-        }
+        self.check_range(ModbusRegisterType::HoldingRegister, address, n as u16)?;
+
         for i in 0..n {
             self.holding_registers[i + address as usize] = values[i];
         }

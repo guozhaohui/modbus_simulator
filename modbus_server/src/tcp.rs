@@ -12,7 +12,7 @@ use std::borrow::BorrowMut;
 use modbus_protocol::coils::Coil;
 use modbus_protocol::function_code::FunctionCode;
 use modbus_protocol::requests::Requests;
-use modbus_protocol::exception_code::{ExceptionCode};
+use modbus_protocol::exception_code::{Error, ExceptionCode};
 use super::server_status::StatusInfo;
 use super::mbap::Header;
 use super::mbap::MODBUS_HEADER_SIZE;
@@ -79,7 +79,12 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                             },
                             Err(e) => {
                                 println!("something wrong {}", e);
-                                buff.write_u8(ExceptionCode::IllegalDataValue as u8).unwrap();
+                                match e {
+                                    Error::Exception(code) => {
+                                        buff.write_u8(code as u8).unwrap();
+                                    },
+                                    _ => (),
+                                }
                             }
                         }
                         write_response(&mut stream, mbap_header, &mut buff);
@@ -98,7 +103,12 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                             },
                             Err(e) => {
                                 println!("something wrong {}", e);
-                                buff.write_u8(ExceptionCode::IllegalDataValue as u8).unwrap();
+                                match e {
+                                    Error::Exception(code) => {
+                                        buff.write_u8(code as u8).unwrap();
+                                    },
+                                    _ => (),
+                                }
                             }
                         }
                         write_response(&mut stream, mbap_header, &mut buff);
@@ -117,7 +127,12 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                             },
                             Err(e) => {
                                 println!("something wrong {}", e);
-                                buff.write_u8(ExceptionCode::IllegalDataValue as u8).unwrap();
+                                match e {
+                                    Error::Exception(code) => {
+                                        buff.write_u8(code as u8).unwrap();
+                                    },
+                                    _ => (),
+                                }
                             }
                         }
                         write_response(&mut stream, mbap_header, &mut buff);
@@ -136,7 +151,12 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                             },
                             Err(e) => {
                                 println!("something wrong {}", e);
-                                buff.write_u8(ExceptionCode::IllegalDataValue as u8).unwrap();
+                                match e {
+                                    Error::Exception(code) => {
+                                        buff.write_u8(code as u8).unwrap();
+                                    },
+                                    _ => (),
+                                }
                             }
                         }
                         write_response(&mut stream, mbap_header, &mut buff);
@@ -151,7 +171,12 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                             },
                             Err(e) => {
                                 println!("something wrong {}", e);
-                                buff.write_u8(ExceptionCode::IllegalDataValue as u8).unwrap();
+                                match e {
+                                    Error::Exception(code) => {
+                                        buff.write_u8(code as u8).unwrap();
+                                    },
+                                    _ => (),
+                                }
                             }
                         }
                         write_response(&mut stream, mbap_header, &mut buff);
@@ -166,7 +191,12 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                             },
                             Err(e) => {
                                 println!("something wrong {}", e);
-                                buff.write_u8(ExceptionCode::IllegalDataValue as u8).unwrap();
+                                match e {
+                                    Error::Exception(code) => {
+                                        buff.write_u8(code as u8).unwrap();
+                                    },
+                                    _ => (),
+                                }
                             }
                         }
                         write_response(&mut stream, mbap_header, &mut buff);
@@ -185,7 +215,12 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                             },
                             Err(e) => {
                                 println!("something wrong {}", e);
-                                buff.write_u8(ExceptionCode::IllegalDataValue as u8).unwrap();
+                                match e {
+                                    Error::Exception(code) => {
+                                        buff.write_u8(code as u8).unwrap();
+                                    },
+                                    _ => (),
+                                }
                             }
                         }
                         write_response(&mut stream, mbap_header, &mut buff);
@@ -204,12 +239,20 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
                             },
                             Err(e) => {
                                 println!("something wrong {}", e);
-                                buff.write_u8(ExceptionCode::IllegalDataValue as u8).unwrap();
+                                match e {
+                                    Error::Exception(code) => {
+                                        buff.write_u8(code as u8).unwrap();
+                                    },
+                                    _ => (),
+                                }
                             }
                         }
                         write_response(&mut stream, mbap_header, &mut buff);
                     },
                     _ => {
+                        let mut buff = vec![0; MODBUS_HEADER_SIZE];
+                        buff.write_u8(ExceptionCode::IllegalFunction as u8).unwrap();
+                        write_response(&mut stream, mbap_header, &mut buff);
                     },
                 }
 
