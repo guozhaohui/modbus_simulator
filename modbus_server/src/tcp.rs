@@ -19,6 +19,15 @@ use super::mbap::MODBUS_HEADER_SIZE;
 
 const MODBUS_MAX_PACKET_SIZE: usize = 260;
 
+fn handle_status_error(e: Error,  buff: &mut [u8]) {
+    let mut start = Cursor::new(buff.borrow_mut());
+    match e {
+        Error::Exception(code) => {
+            start.write_u8(code as u8).unwrap();
+        },
+        _ => (),
+    }
+}
 fn write_response(stream: &mut TcpStream, header: Header,  buff: &mut [u8]) {
     if buff.is_empty() {
         return;
@@ -48,6 +57,146 @@ fn write_response(stream: &mut TcpStream, header: Header,  buff: &mut [u8]) {
     }
 }
 
+pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_header: Header, data: &mut [u8]){
+    let mut pdu_data = Cursor::new(data.borrow_mut());
+    let function_code = pdu_data.read_u8().unwrap();
+    let mut buff = vec![0; MODBUS_HEADER_SIZE];
+    match FromPrimitive::from_u8(function_code) {
+        Some(FunctionCode::ReadCoils) =>{
+            let addr= pdu_data.read_u16::<BigEndian>().unwrap();
+            let count = pdu_data.read_u16::<BigEndian>().unwrap();
+            match status.read_coils(addr, count) {
+                Ok(coils) => {
+                    buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
+                    buff.write_u8(coils.len() as u8).unwrap();
+                    for v in coils {
+                        buff.write_u16::<BigEndian>(v.code()).unwrap();
+                    }
+                },
+                Err(e) => {
+                    println!("something wrong {}", e);
+                    handle_status_error(e, &mut buff);
+                }
+            }
+        },
+        Some(FunctionCode::ReadDiscreteInputs) =>{
+            let addr= pdu_data.read_u16::<BigEndian>().unwrap();
+            let count = pdu_data.read_u16::<BigEndian>().unwrap();
+            match status.read_discrete_inputs(addr, count) {
+                Ok(coils) => {
+                    buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
+                    buff.write_u8(coils.len() as u8).unwrap();
+                    for v in coils {
+                        buff.write_u16::<BigEndian>(v.code()).unwrap();
+                    }
+                },
+                Err(e) => {
+                    println!("something wrong {}", e);
+                    handle_status_error(e, &mut buff);
+                }
+            }
+        },
+        Some(FunctionCode::ReadHoldingRegisters) =>{
+            let addr= pdu_data.read_u16::<BigEndian>().unwrap();
+            let count = pdu_data.read_u16::<BigEndian>().unwrap();
+            let mut buff = vec![0; MODBUS_HEADER_SIZE];
+            match status.read_holding_registers(addr, count) {
+                Ok(registers) => {
+                    buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
+                    buff.write_u8(registers.len() as u8).unwrap();
+                    for v in registers {
+                        buff.write_u16::<BigEndian>(v).unwrap();
+                    }
+                },
+                Err(e) => {
+                    println!("something wrong {}", e);
+                    handle_status_error(e, &mut buff);
+                }
+            }
+        },
+        Some(FunctionCode::ReadInputRegisters) =>{
+            let addr= pdu_data.read_u16::<BigEndian>().unwrap();
+            let count = pdu_data.read_u16::<BigEndian>().unwrap();
+            match status.read_input_registers(addr, count) {
+                Ok(registers) => {
+                    buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
+                    buff.write_u8(registers.len() as u8).unwrap();
+                    for v in registers {
+                        buff.write_u16::<BigEndian>(v).unwrap();
+                    }
+                },
+                Err(e) => {
+                    println!("something wrong {}", e);
+                    handle_status_error(e, &mut buff);
+                }
+            }
+        },
+        Some(FunctionCode::WriteSingleCoil) => {
+            let addr= pdu_data.read_u16::<BigEndian>().unwrap();
+            let value = pdu_data.read_u16::<BigEndian>().unwrap();
+            match status.write_single_coil(addr, Coil::from_u16(value).unwrap()) {
+                Ok(()) => {
+                    buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
+                },
+                Err(e) => {
+                    println!("something wrong {}", e);
+                    handle_status_error(e, &mut buff);
+                }
+            }
+        },
+        Some(FunctionCode::WriteSingleRegister) => {
+            let addr= pdu_data.read_u16::<BigEndian>().unwrap();
+            let value = pdu_data.read_u16::<BigEndian>().unwrap();
+            match status.write_single_register(addr, value) {
+                Ok(()) => {
+                    buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
+                },
+                Err(e) => {
+                    println!("something wrong {}", e);
+                    handle_status_error(e, &mut buff);
+                }
+            }
+        },
+        Some(FunctionCode::WriteMultipleCoils) => {
+            let addr= pdu_data.read_u16::<BigEndian>().unwrap();
+            let count = pdu_data.read_u16::<BigEndian>().unwrap();
+            let mut values :Vec<Coil> = Vec::with_capacity(count as usize);
+            for i in 0..count-1 {
+                values[i as usize] = Coil::from_u16(pdu_data.read_u16::<BigEndian>().unwrap()).unwrap();
+            }
+            match status.write_multiple_coils(addr, &values[..]) {
+                Ok(()) => {
+                    buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
+                },
+                Err(e) => {
+                    println!("something wrong {}", e);
+                    handle_status_error(e, &mut buff);
+                }
+            }
+        },
+        Some(FunctionCode::WriteMultipleRegisters) => {
+            let addr= pdu_data.read_u16::<BigEndian>().unwrap();
+            let count = pdu_data.read_u16::<BigEndian>().unwrap();
+            let mut values :Vec<u16> = Vec::with_capacity(count as usize);
+            for i in 0..count-1 {
+                values[i as usize] = pdu_data.read_u16::<BigEndian>().unwrap();
+            }
+            match status.write_multiple_registers(addr, &values[..]) {
+                Ok(()) => {
+                    buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
+                },
+                Err(e) => {
+                    println!("something wrong {}", e);
+                    handle_status_error(e, &mut buff);
+                }
+            }
+        },
+        _ => {
+            buff.write_u8(ExceptionCode::IllegalFunction as u8).unwrap();
+        },
+    }
+    write_response(stream, mbap_header, &mut buff);
+}
 
 pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: Arc<Mutex<StatusInfo>>){
     let data = &mut [0 as u8; MODBUS_MAX_PACKET_SIZE];
@@ -60,202 +209,10 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8, shared_status: 
             }
             Ok(size) => {
                 println!("received {:?} bytes", size);
-                let mut _status = shared_status.lock().unwrap();
+                let mut status = shared_status.lock().unwrap();
                 let mbap_header = Header::unpack(data).unwrap();
-                let mut pdu_data = &data[MODBUS_HEADER_SIZE..];
-                let function_code = pdu_data.read_u8().unwrap();
-                match FromPrimitive::from_u8(function_code) {
-                    Some(FunctionCode::ReadCoils) =>{
-                        let addr= pdu_data.read_u16::<BigEndian>().unwrap();
-                        let count = pdu_data.read_u16::<BigEndian>().unwrap();
-                        let mut buff = vec![0; MODBUS_HEADER_SIZE];
-                        match _status.read_coils(addr, count) {
-                            Ok(coils) => {
-                                buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
-                                buff.write_u8(coils.len() as u8).unwrap();
-                                for v in coils {
-                                    buff.write_u16::<BigEndian>(v.code()).unwrap();
-                                }
-                            },
-                            Err(e) => {
-                                println!("something wrong {}", e);
-                                match e {
-                                    Error::Exception(code) => {
-                                        buff.write_u8(code as u8).unwrap();
-                                    },
-                                    _ => (),
-                                }
-                            }
-                        }
-                        write_response(&mut stream, mbap_header, &mut buff);
-                    },
-                    Some(FunctionCode::ReadDiscreteInputs) =>{
-                        let addr= pdu_data.read_u16::<BigEndian>().unwrap();
-                        let count = pdu_data.read_u16::<BigEndian>().unwrap();
-                        let mut buff = vec![0; MODBUS_HEADER_SIZE];
-                        match _status.read_discrete_inputs(addr, count) {
-                            Ok(coils) => {
-                                buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
-                                buff.write_u8(coils.len() as u8).unwrap();
-                                for v in coils {
-                                    buff.write_u16::<BigEndian>(v.code()).unwrap();
-                                }
-                            },
-                            Err(e) => {
-                                println!("something wrong {}", e);
-                                match e {
-                                    Error::Exception(code) => {
-                                        buff.write_u8(code as u8).unwrap();
-                                    },
-                                    _ => (),
-                                }
-                            }
-                        }
-                        write_response(&mut stream, mbap_header, &mut buff);
-                    },
-                    Some(FunctionCode::ReadHoldingRegisters) =>{
-                        let addr= pdu_data.read_u16::<BigEndian>().unwrap();
-                        let count = pdu_data.read_u16::<BigEndian>().unwrap();
-                        let mut buff = vec![0; MODBUS_HEADER_SIZE];
-                        match _status.read_holding_registers(addr, count) {
-                            Ok(registers) => {
-                                buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
-                                buff.write_u8(registers.len() as u8).unwrap();
-                                for v in registers {
-                                    buff.write_u16::<BigEndian>(v).unwrap();
-                                }
-                            },
-                            Err(e) => {
-                                println!("something wrong {}", e);
-                                match e {
-                                    Error::Exception(code) => {
-                                        buff.write_u8(code as u8).unwrap();
-                                    },
-                                    _ => (),
-                                }
-                            }
-                        }
-                        write_response(&mut stream, mbap_header, &mut buff);
-                    },
-                    Some(FunctionCode::ReadInputRegisters) =>{
-                        let addr= pdu_data.read_u16::<BigEndian>().unwrap();
-                        let count = pdu_data.read_u16::<BigEndian>().unwrap();
-                        let mut buff = vec![0; MODBUS_HEADER_SIZE];
-                        match _status.read_input_registers(addr, count) {
-                            Ok(registers) => {
-                                buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
-                                buff.write_u8(registers.len() as u8).unwrap();
-                                for v in registers {
-                                    buff.write_u16::<BigEndian>(v).unwrap();
-                                }
-                            },
-                            Err(e) => {
-                                println!("something wrong {}", e);
-                                match e {
-                                    Error::Exception(code) => {
-                                        buff.write_u8(code as u8).unwrap();
-                                    },
-                                    _ => (),
-                                }
-                            }
-                        }
-                        write_response(&mut stream, mbap_header, &mut buff);
-                    },
-                    Some(FunctionCode::WriteSingleCoil) => {
-                        let addr= pdu_data.read_u16::<BigEndian>().unwrap();
-                        let value = pdu_data.read_u16::<BigEndian>().unwrap();
-                        let mut buff = vec![0; MODBUS_HEADER_SIZE];
-                        match _status.write_single_coil(addr, Coil::from_u16(value).unwrap()) {
-                            Ok(()) => {
-                                buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
-                            },
-                            Err(e) => {
-                                println!("something wrong {}", e);
-                                match e {
-                                    Error::Exception(code) => {
-                                        buff.write_u8(code as u8).unwrap();
-                                    },
-                                    _ => (),
-                                }
-                            }
-                        }
-                        write_response(&mut stream, mbap_header, &mut buff);
-                    },
-                    Some(FunctionCode::WriteSingleRegister) => {
-                        let addr= pdu_data.read_u16::<BigEndian>().unwrap();
-                        let value = pdu_data.read_u16::<BigEndian>().unwrap();
-                        let mut buff = vec![0; MODBUS_HEADER_SIZE];
-                        match _status.write_single_register(addr, value) {
-                            Ok(()) => {
-                                buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
-                            },
-                            Err(e) => {
-                                println!("something wrong {}", e);
-                                match e {
-                                    Error::Exception(code) => {
-                                        buff.write_u8(code as u8).unwrap();
-                                    },
-                                    _ => (),
-                                }
-                            }
-                        }
-                        write_response(&mut stream, mbap_header, &mut buff);
-                    },
-                    Some(FunctionCode::WriteMultipleCoils) => {
-                        let addr= pdu_data.read_u16::<BigEndian>().unwrap();
-                        let count = pdu_data.read_u16::<BigEndian>().unwrap();
-                        let mut values :Vec<Coil> = Vec::with_capacity(count as usize);
-                        for i in 0..count-1 {
-                            values[i as usize] = Coil::from_u16(pdu_data.read_u16::<BigEndian>().unwrap()).unwrap();
-                        }
-                        let mut buff = vec![0; MODBUS_HEADER_SIZE];
-                        match _status.write_multiple_coils(addr, &values[..]) {
-                            Ok(()) => {
-                                buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
-                            },
-                            Err(e) => {
-                                println!("something wrong {}", e);
-                                match e {
-                                    Error::Exception(code) => {
-                                        buff.write_u8(code as u8).unwrap();
-                                    },
-                                    _ => (),
-                                }
-                            }
-                        }
-                        write_response(&mut stream, mbap_header, &mut buff);
-                    },
-                    Some(FunctionCode::WriteMultipleRegisters) => {
-                        let addr= pdu_data.read_u16::<BigEndian>().unwrap();
-                        let count = pdu_data.read_u16::<BigEndian>().unwrap();
-                        let mut values :Vec<u16> = Vec::with_capacity(count as usize);
-                        for i in 0..count-1 {
-                            values[i as usize] = pdu_data.read_u16::<BigEndian>().unwrap();
-                        }
-                        let mut buff = vec![0; MODBUS_HEADER_SIZE];
-                        match _status.write_multiple_registers(addr, &values[..]) {
-                            Ok(()) => {
-                                buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
-                            },
-                            Err(e) => {
-                                println!("something wrong {}", e);
-                                match e {
-                                    Error::Exception(code) => {
-                                        buff.write_u8(code as u8).unwrap();
-                                    },
-                                    _ => (),
-                                }
-                            }
-                        }
-                        write_response(&mut stream, mbap_header, &mut buff);
-                    },
-                    _ => {
-                        let mut buff = vec![0; MODBUS_HEADER_SIZE];
-                        buff.write_u8(ExceptionCode::IllegalFunction as u8).unwrap();
-                        write_response(&mut stream, mbap_header, &mut buff);
-                    },
-                }
-
+                let pdu_data = &mut data[MODBUS_HEADER_SIZE..];
+                handle_pdu_data(&mut stream, &mut status, mbap_header, pdu_data);
             }
         }
     }
