@@ -1,3 +1,4 @@
+[![Rust](https://github.com/guozhaohui/modbus_simulator/actions/workflows/rust.yml/badge.svg)](https://github.com/guozhaohui/modbus_simulator/actions/workflows/rust.yml)
 # modbus_simulator
 A modbus simulator written by rust.
 
