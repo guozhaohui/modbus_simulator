@@ -8,6 +8,7 @@ use modbus_protocol::coils::Coil;
 use modbus_protocol::requests::Requests;
 
 mod tcp;
+use tcp::Config;
 fn main() {
   let matches = App::new("client")
     .author("Zhaohui GUO <guo.zhaohui@gmail.com>")
@@ -15,6 +16,10 @@ fn main() {
     .about("Modbus Tcp client")
     .args_from_usage(
       "<SERVER> 'The IP address or hostname of the server'
+                        \
+                          --port=[port] 'port number'
+                        \
+                          --unit_id=[UID] 'unit identifier'
                         \
                           --read-coils=[ADDR] [QUANTITY] 'Read QUANTITY coils from ADDR'
                         \
@@ -40,7 +45,20 @@ fn main() {
     )
     .get_matches();
 
-  let mut client = tcp::Transport::new(matches.value_of("SERVER").unwrap()).unwrap();
+  let mut config = Config::default();
+  let addr = matches.value_of("SERVER").unwrap();
+  if let Some(args) = matches.values_of("port") {
+      let args: Vec<&str> = args.collect();
+      let port = args[0].parse().expect(matches.usage());
+      config.set_port(port);
+  }
+
+  if let Some(args) = matches.values_of("unit_id") {
+      let args: Vec<&str> = args.collect();
+      let uid = args[0].parse().expect(matches.usage());
+      config.set_uid(uid);
+  }
+  let mut client = tcp::Transport::new_with_cfg(addr, config).unwrap();
 
   if let Some(args) = matches.values_of("read-coils") {
     let args: Vec<&str> = args.collect();

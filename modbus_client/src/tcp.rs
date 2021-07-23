@@ -44,6 +44,16 @@ impl Default for Config {
     }
 }
 
+impl Config {
+    pub fn set_port(self: &mut Self, port: u16) {
+        self.tcp_port = port;
+    }
+    pub fn set_uid(self: &mut Self, uid: u8) {
+        self.modbus_uid = uid;
+    }
+}
+
+
 #[derive(Debug, PartialEq)]
 struct Header {
     tid: u16,
@@ -90,12 +100,6 @@ pub struct Transport {
 }
 
 impl Transport {
-    /// Create a new context context object and connect it to `addr` on modbus-tcp default
-    /// port (502)
-    pub fn new(addr: &str) -> io::Result<Transport> {
-        Self::new_with_cfg(addr, Config::default())
-    }
-
     /// Create a new context object and connect it to `addr` on port `port`
     pub fn new_with_cfg(addr: &str, cfg: Config) -> io::Result<Transport> {
         let stream = match cfg.tcp_connect_timeout {

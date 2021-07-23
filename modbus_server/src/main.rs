@@ -45,6 +45,15 @@ impl Default for Config {
     }
 }
 
+impl Config {
+    fn set_port(self: &mut Self, port: u16) {
+        self.tcp_port = port;
+    }
+    fn set_uid(self: &mut Self, uid: u8) {
+        self.modbus_uid = uid;
+    }
+}
+
 fn main() {
     let mut children = vec![];
     let mut uid: u8 = 0;
@@ -57,17 +66,26 @@ fn main() {
         .args_from_usage(
         "<SERVER> 'The IP address or hostname of the server'
                         \
+                          --port=[port] 'port number'
+                        \
                           --unit_id=[UID] 'unit identifier'
                         \
                           --capacity=[size] 'register number'",
         )
         .get_matches();
 
+    let mut config = Config::default();
     let addr = matches.value_of("SERVER").unwrap();
+    if let Some(args) = matches.values_of("port") {
+        let args: Vec<&str> = args.collect();
+        let port = args[0].parse().expect(matches.usage());
+        config.set_port(port);
+    }
 
     if let Some(args) = matches.values_of("unit_id") {
         let args: Vec<&str> = args.collect();
         uid = args[0].parse().expect(matches.usage());
+        config.set_uid(uid);
     }
     if let Some(args) = matches.values_of("capacity") {
         let args: Vec<&str> = args.collect();
@@ -75,7 +93,6 @@ fn main() {
     }
 
     let status_info = Arc::new(Mutex::new(StatusInfo::create(size)));
-    let config = Config::default();
     let listener = TcpListener::bind((addr, config.tcp_port)).unwrap();
     for stream in listener.incoming() {
         match stream {
