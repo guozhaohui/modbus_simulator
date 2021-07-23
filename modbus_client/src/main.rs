@@ -6,9 +6,14 @@ use clap::App;
 use clap::crate_version;
 use modbus_protocol::coils::Coil;
 use modbus_protocol::requests::Requests;
-
+use modbus_protocol::exception_code::{Error};
 mod tcp;
 use tcp::Config;
+
+fn handle_error(e: Error) {
+    println!("[LOG] failed with {}", e);
+}
+
 fn main() {
   let matches = App::new("client")
     .author("Zhaohui GUO <guo.zhaohui@gmail.com>")
@@ -64,20 +69,38 @@ fn main() {
     let args: Vec<&str> = args.collect();
     let addr: u16 = args[0].parse().expect(matches.usage());
     let qtty: u16 = args[1].parse().expect(matches.usage());
-    println!("{:?}", client.read_coils(addr, qtty).expect("IO Error"));
+    match client.read_coils(addr, qtty) {
+        Err(e) =>{
+            handle_error(e);
+        },
+        Ok(_) => {
+            println!("[LOG] successed");
+        }
+    };
   } else if let Some(args) = matches.values_of("read-discrete-inputs") {
     let args: Vec<&str> = args.collect();
     let addr: u16 = args[0].parse().expect(matches.usage());
     let qtty: u16 = args[1].parse().expect(matches.usage());
-    println!(
-      "{:?}",
-      client.read_discrete_inputs(addr, qtty).expect("IO Error")
-    );
+    match client.read_discrete_inputs(addr, qtty) {
+        Err(e) =>{
+            handle_error(e);
+        },
+        Ok(_) => {
+            println!("[LOG] successed");
+        }
+    };
   } else if let Some(args) = matches.values_of("write-single-coil") {
     let args: Vec<&str> = args.collect();
     let addr: u16 = args[0].parse().expect(matches.usage());
     let value: Coil = args[1].parse().expect(matches.usage());
-    client.write_single_coil(addr, value).expect("IO Error");
+    match client.write_single_coil(addr, value) {
+        Err(e) =>{
+            handle_error(e);
+        },
+        Ok(_) => {
+            println!("[LOG] successed");
+        }
+    };
   } else if let Some(args) = matches.values_of("write-multiple-coils") {
     let args: Vec<&str> = args.collect();
     let addr: u16 = args[0].parse().expect(matches.usage());
@@ -85,22 +108,38 @@ fn main() {
       .split(',')
       .map(|s| s.trim().parse().expect(matches.usage()))
       .collect();
-    client
-      .write_multiple_coils(addr, &values)
-      .expect("IO Error");
+    match client.write_multiple_coils(addr, &values) {
+        Err(e) =>{
+            handle_error(e);
+        },
+        Ok(_) => {
+            println!("[LOG] successed");
+        }
+    };
   } else if let Some(args) = matches.values_of("read-holding-registers") {
     let args: Vec<&str> = args.collect();
     let addr: u16 = args[0].parse().expect(matches.usage());
     let qtty: u16 = args[1].parse().expect(matches.usage());
-    println!(
-      "{:?}",
-      client.read_holding_registers(addr, qtty).expect("IO Error")
-    );
+    match client.read_holding_registers(addr, qtty) {
+        Err(e) =>{
+            handle_error(e);
+        },
+        Ok(_) => {
+            println!("[LOG] successed");
+        }
+    };
   } else if let Some(args) = matches.values_of("write-single-register") {
     let args: Vec<&str> = args.collect();
     let addr: u16 = args[0].parse().expect(matches.usage());
     let value: u16 = args[1].parse().expect(matches.usage());
-    client.write_single_register(addr, value).expect("IO Error");
+    match client.write_single_register(addr, value){
+        Err(e) =>{
+            handle_error(e);
+        },
+        Ok(_) => {
+            println!("[LOG] successed");
+        }
+    };
   } else if let Some(args) = matches.values_of("write-multiple-registers") {
     let args: Vec<&str> = args.collect();
     let addr: u16 = args[0].parse().expect(matches.usage());
@@ -108,8 +147,13 @@ fn main() {
       .split(',')
       .map(|s| s.trim().parse().expect(matches.usage()))
       .collect();
-    client
-      .write_multiple_registers(addr, &values)
-      .expect("IO Error");
-  }
+    match client.write_multiple_registers(addr, &values) {
+        Err(e) =>{
+            handle_error(e);
+        },
+        Ok(_) => {
+            println!("[LOG] successed");
+        }
+    };
+  };
 }

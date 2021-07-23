@@ -112,14 +112,16 @@ impl Transport {
         };
 
         match stream {
-            Ok(s) => {
-                s.set_read_timeout(cfg.tcp_read_timeout)?;
-                s.set_write_timeout(cfg.tcp_write_timeout)?;
-                s.set_nodelay(true)?;
+            Ok(socket) => {
+                let peer_addr = socket.peer_addr().unwrap();
+                println!("[LOG] connected server: {:?}", peer_addr);
+                socket.set_read_timeout(cfg.tcp_read_timeout)?;
+                socket.set_write_timeout(cfg.tcp_write_timeout)?;
+                socket.set_nodelay(true)?;
                 Ok(Transport {
                     tid: 0,
                     uid: cfg.modbus_uid,
-                    stream: s,
+                    stream: socket,
                 })
             }
             Err(e) => Err(e),
@@ -182,6 +184,9 @@ impl Transport {
 
     fn validate_response_header(req: &Header, resp: &Header) -> Result<()> {
         if req.tid != resp.tid || resp.pid != MODBUS_PROTOCOL_TCP {
+            println!("[LOG] Invalid response header:");
+            println!("[LOG]    tid: expected: {}, result: {}", req.tid, resp.tid);
+            println!("[LOG]    pid: expected: {}, result: {}", MODBUS_PROTOCOL_TCP, resp.pid);
             Err(Error::InvalidResponse)
         } else {
             Ok(())
@@ -192,11 +197,16 @@ impl Transport {
         if req[7] + 0x80 == resp[7] {
             match ExceptionCode::from_u8(resp[8]) {
                 Some(code) => Err(Error::Exception(code)),
-                None => Err(Error::InvalidResponse),
+                None => {
+                    println!("[LOG] Invalid Exception code: {}", resp[8]);
+                    Err(Error::InvalidResponse)
+                }
             }
         } else if req[7] == resp[7] {
             Ok(())
         } else {
+            println!("[LOG] invalid response code");
+            println!("[LOG]    expected: {}, result: {}", req[7], resp[7]);
             Err(Error::InvalidResponse)
         }
     }
@@ -205,6 +215,7 @@ impl Transport {
         if reply[8] as usize != expected_bytes
             || reply.len() != MODBUS_HEADER_SIZE + expected_bytes + 2
         {
+            println!("[LOG] Unexpected reply size, reply size: {}", reply.len());
             Err(Error::InvalidData(Reason::UnexpectedReplySize))
         } else {
             let mut d = Vec::new();
