@@ -97,11 +97,12 @@ fn main() {
     for stream in listener.incoming() {
         match stream {
             Ok(_socket) => {
-                println!("new client: {:?}", _socket.peer_addr().unwrap());
+                let peer_addr = _socket.peer_addr().unwrap();
+                println!("[LOG] new client: {:?}", peer_addr);
                 let my_status = status_info.clone();
-                children.push(thread::spawn(move|| {
-                    tcp::handle_client(_socket, tid, uid, my_status)
-                }));
+                children.push(thread::Builder::new().name(peer_addr.to_string()).spawn(move|| {
+                    tcp::handle_client(_socket, tid, uid, my_status, &peer_addr)
+                }).unwrap());
             }
             Err(e) => {
                 println!("couldn't get client: {:?}" , e);
