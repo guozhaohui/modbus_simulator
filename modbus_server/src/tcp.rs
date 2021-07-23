@@ -20,8 +20,9 @@ use super::mbap::MODBUS_HEADER_SIZE;
 
 const MODBUS_MAX_PACKET_SIZE: usize = 260;
 
-fn handle_status_error(e: Error,  buff: &mut [u8]) {
+fn handle_status_error(function_code: u8, e: Error,  buff: &mut [u8]) {
     let mut start = Cursor::new(buff.borrow_mut());
+    start.write_u8(function_code + 0x80).unwrap();
     match e {
         Error::Exception(code) => {
             start.write_u8(code as u8).unwrap();
@@ -70,7 +71,7 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
             println!("[LOG] request ReadCoils addr: {}; count: {}", addr, count);
             match status.read_coils(addr, count) {
                 Ok(coils) => {
-                    buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
+                    buff.write_u8(function_code).unwrap();
                     buff.write_u8(coils.len() as u8).unwrap();
                     for v in coils {
                         buff.write_u16::<BigEndian>(v.code()).unwrap();
@@ -78,7 +79,7 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
                 },
                 Err(e) => {
                     println!("something wrong {}", e);
-                    handle_status_error(e, &mut buff);
+                    handle_status_error(function_code, e, &mut buff);
                 }
             }
         },
@@ -88,7 +89,7 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
             println!("[LOG] request ReadDiscreteInputs, addr: {}; count: {}", addr, count);
             match status.read_discrete_inputs(addr, count) {
                 Ok(coils) => {
-                    buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
+                    buff.write_u8(function_code).unwrap();
                     buff.write_u8(coils.len() as u8).unwrap();
                     for v in coils {
                         buff.write_u16::<BigEndian>(v.code()).unwrap();
@@ -96,7 +97,7 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
                 },
                 Err(e) => {
                     println!("something wrong {}", e);
-                    handle_status_error(e, &mut buff);
+                    handle_status_error(function_code, e, &mut buff);
                 }
             }
         },
@@ -107,7 +108,7 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
             let mut buff = vec![0; MODBUS_HEADER_SIZE];
             match status.read_holding_registers(addr, count) {
                 Ok(registers) => {
-                    buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
+                    buff.write_u8(function_code).unwrap();
                     buff.write_u8(registers.len() as u8).unwrap();
                     for v in registers {
                         buff.write_u16::<BigEndian>(v).unwrap();
@@ -115,7 +116,7 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
                 },
                 Err(e) => {
                     println!("something wrong {}", e);
-                    handle_status_error(e, &mut buff);
+                    handle_status_error(function_code, e, &mut buff);
                 }
             }
         },
@@ -125,7 +126,7 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
             println!("[LOG] request ReadInputRegisters, addr: {}; count: {}", addr, count);
             match status.read_input_registers(addr, count) {
                 Ok(registers) => {
-                    buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
+                    buff.write_u8(function_code).unwrap();
                     buff.write_u8(registers.len() as u8).unwrap();
                     for v in registers {
                         buff.write_u16::<BigEndian>(v).unwrap();
@@ -133,7 +134,7 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
                 },
                 Err(e) => {
                     println!("something wrong {}", e);
-                    handle_status_error(e, &mut buff);
+                    handle_status_error(function_code, e, &mut buff);
                 }
             }
         },
@@ -143,11 +144,11 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
             let value = pdu_data.read_u16::<BigEndian>().unwrap();
             match status.write_single_coil(addr, Coil::from_u16(value).unwrap()) {
                 Ok(()) => {
-                    buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
+                    buff.write_u8(function_code).unwrap();
                 },
                 Err(e) => {
                     println!("something wrong {}", e);
-                    handle_status_error(e, &mut buff);
+                    handle_status_error(function_code, e, &mut buff);
                 }
             }
         },
@@ -157,11 +158,11 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
             let value = pdu_data.read_u16::<BigEndian>().unwrap();
             match status.write_single_register(addr, value) {
                 Ok(()) => {
-                    buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
+                    buff.write_u8(function_code).unwrap();
                 },
                 Err(e) => {
                     println!("something wrong {}", e);
-                    handle_status_error(e, &mut buff);
+                    handle_status_error(function_code, e, &mut buff);
                 }
             }
         },
@@ -175,11 +176,11 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
             }
             match status.write_multiple_coils(addr, &values[..]) {
                 Ok(()) => {
-                    buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
+                    buff.write_u8(function_code).unwrap();
                 },
                 Err(e) => {
                     println!("something wrong {}", e);
-                    handle_status_error(e, &mut buff);
+                    handle_status_error(function_code, e, &mut buff);
                 }
             }
         },
@@ -193,15 +194,16 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
             }
             match status.write_multiple_registers(addr, &values[..]) {
                 Ok(()) => {
-                    buff.write_u8(ExceptionCode::Acknowledge as u8).unwrap();
+                    buff.write_u8(function_code).unwrap();
                 },
                 Err(e) => {
                     println!("something wrong {}", e);
-                    handle_status_error(e, &mut buff);
+                    handle_status_error(function_code, e, &mut buff);
                 }
             }
         },
         _ => {
+            buff.write_u8(function_code + 0x80).unwrap();
             buff.write_u8(ExceptionCode::IllegalFunction as u8).unwrap();
         },
     }

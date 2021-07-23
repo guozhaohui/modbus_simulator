@@ -215,7 +215,11 @@ impl Transport {
         if reply[8] as usize != expected_bytes
             || reply.len() != MODBUS_HEADER_SIZE + expected_bytes + 2
         {
-            println!("[LOG] Unexpected reply size, reply size: {}", reply.len());
+            println!("[LOG] Unexpected reply size");
+            println!("[LOG]    length field, expected: {}, result: {}",
+                       expected_bytes, reply[8]);
+            println!("[LOG]    length expected: {}, result: {}",
+                       MODBUS_HEADER_SIZE + expected_bytes + 2, reply.len());
             Err(Error::InvalidData(Reason::UnexpectedReplySize))
         } else {
             let mut d = Vec::new();
