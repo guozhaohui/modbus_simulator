@@ -10,6 +10,7 @@ use std::sync::{Arc, Mutex};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::borrow::BorrowMut;
 
+use modbus_protocol::utils;
 use modbus_protocol::coils::Coil;
 use modbus_protocol::function_code::FunctionCode;
 use modbus_protocol::requests::Requests;
@@ -72,9 +73,10 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
             match status.read_coils(addr, count) {
                 Ok(coils) => {
                     buff.write_u8(function_code).unwrap();
-                    buff.write_u8(coils.len() as u8).unwrap();
-                    for v in coils {
-                        buff.write_u16::<BigEndian>(v.code()).unwrap();
+                    let bits = utils::pack_bits(&coils);
+                    buff.write_u8(bits.len() as u8).unwrap();
+                    for v in bits {
+                        buff.write_u8(v).unwrap();
                     }
                 },
                 Err(e) => {
@@ -90,9 +92,10 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
             match status.read_discrete_inputs(addr, count) {
                 Ok(coils) => {
                     buff.write_u8(function_code).unwrap();
-                    buff.write_u8(coils.len() as u8).unwrap();
-                    for v in coils {
-                        buff.write_u16::<BigEndian>(v.code()).unwrap();
+                    let bits = utils::pack_bits(&coils);
+                    buff.write_u8(bits.len() as u8).unwrap();
+                    for v in bits {
+                        buff.write_u8(v).unwrap();
                     }
                 },
                 Err(e) => {
@@ -109,7 +112,7 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
             match status.read_holding_registers(addr, count) {
                 Ok(registers) => {
                     buff.write_u8(function_code).unwrap();
-                    buff.write_u8(registers.len() as u8).unwrap();
+                    buff.write_u8(registers.len() as u8 * 2).unwrap();
                     for v in registers {
                         buff.write_u16::<BigEndian>(v).unwrap();
                     }
@@ -127,7 +130,7 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
             match status.read_input_registers(addr, count) {
                 Ok(registers) => {
                     buff.write_u8(function_code).unwrap();
-                    buff.write_u8(registers.len() as u8).unwrap();
+                    buff.write_u8(registers.len() as u8 * 2).unwrap();
                     for v in registers {
                         buff.write_u16::<BigEndian>(v).unwrap();
                     }
