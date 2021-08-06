@@ -25,4 +25,6 @@ This project is derived from https://github.com/hirschenberger/modbus-rs, with t
 ## Explanation
 1) The default Modbus TCP port number is 502, but the TCP/IP port numbers below 1024 are special in that normal users are not allowed to run servers on them, so you maybe encounter a permission denied error when you use the default port. *--port* is provided to enable the modbus server to bind on other port for test without root privilege.
 
-2) Multiple clients can connect to the same server simultaneously.   
+2) Multiple clients can connect to the same server simultaneously. 
+
+3) Crate _log4rs_ is used to provide logging function on both server side and client side. Two .yaml files in config_samples folder are example files for log4rs configuration, you can modify them to fulfill your needs.
