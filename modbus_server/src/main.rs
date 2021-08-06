@@ -2,6 +2,9 @@ extern crate num_derive;
 extern crate num_traits;
 extern crate clap;
 extern crate modbus_protocol;
+extern crate log;
+extern crate log4rs;
+
 use clap::App;
 use clap::crate_version;
 use std::net::{TcpListener};
@@ -59,6 +62,9 @@ fn main() {
     let mut uid: u8 = 0;
     let mut tid: u16 = 0;
     let mut size: usize = 0;
+
+    log4rs::init_file("modbus_server_log.yaml", Default::default()).unwrap();
+
     let matches = App::new("Modbus Server")
         .author("Zhaohui GUO <guo.zhaohui@gmail.com>")
         .version(&crate_version!()[..])
@@ -98,14 +104,14 @@ fn main() {
         match stream {
             Ok(_socket) => {
                 let peer_addr = _socket.peer_addr().unwrap();
-                println!("[LOG] new client: {:?}", peer_addr);
+                log::info!("new client: {:?}", peer_addr);
                 let my_status = status_info.clone();
                 children.push(thread::Builder::new().name(peer_addr.to_string()).spawn(move|| {
                     tcp::handle_client(_socket, tid, uid, my_status, &peer_addr)
                 }).unwrap());
             }
             Err(e) => {
-                println!("couldn't get client: {:?}" , e);
+                log::info!("failed to accept a client: {:?}" , e);
             }
         }
         tid = tid.wrapping_add(1);

@@ -2,6 +2,9 @@ extern crate num_derive;
 extern crate num_traits;
 extern crate clap;
 extern crate modbus_protocol;
+extern crate log;
+extern crate log4rs;
+
 use clap::App;
 use clap::crate_version;
 use modbus_protocol::coils::Coil;
@@ -11,10 +14,13 @@ mod tcp;
 use tcp::Config;
 
 fn handle_error(e: Error) {
-    println!("[LOG] failed with {}", e);
+    log::info!("failed with {}", e);
 }
 
 fn main() {
+
+  log4rs::init_file("modbus_client_log.yaml", Default::default()).unwrap();
+
   let matches = App::new("client")
     .author("Zhaohui GUO <guo.zhaohui@gmail.com>")
     .version(&crate_version!()[..])
@@ -74,7 +80,7 @@ fn main() {
             handle_error(e);
         },
         Ok(_) => {
-            println!("[LOG] successed");
+            log::info!("Succeeded");
         }
     };
   } else if let Some(args) = matches.values_of("read-discrete-inputs") {
@@ -86,7 +92,7 @@ fn main() {
             handle_error(e);
         },
         Ok(_) => {
-            println!("[LOG] successed");
+            log::info!("Succeeded");
         }
     };
   } else if let Some(args) = matches.values_of("write-single-coil") {
@@ -98,7 +104,7 @@ fn main() {
             handle_error(e);
         },
         Ok(_) => {
-            println!("[LOG] successed");
+            log::info!("Succeeded");
         }
     };
   } else if let Some(args) = matches.values_of("write-multiple-coils") {
@@ -113,7 +119,7 @@ fn main() {
             handle_error(e);
         },
         Ok(_) => {
-            println!("[LOG] successed");
+            log::info!("Succeeded");
         }
     };
   } else if let Some(args) = matches.values_of("read-holding-registers") {
@@ -125,7 +131,7 @@ fn main() {
             handle_error(e);
         },
         Ok(_) => {
-            println!("[LOG] successed");
+            log::info!("Succeeded");
         }
     };
   } else if let Some(args) = matches.values_of("write-single-register") {
@@ -137,7 +143,7 @@ fn main() {
             handle_error(e);
         },
         Ok(_) => {
-            println!("[LOG] successed");
+            log::info!("Succeeded");
         }
     };
   } else if let Some(args) = matches.values_of("write-multiple-registers") {
@@ -152,7 +158,7 @@ fn main() {
             handle_error(e);
         },
         Ok(_) => {
-            println!("[LOG] successed");
+            log::info!("Succeeded");
         }
     };
   };

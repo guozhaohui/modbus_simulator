@@ -54,7 +54,7 @@ fn write_response(stream: &mut TcpStream, header: Header,  buff: &mut [u8]) {
     }
     match stream.write_all(buff) {
         Ok(_s) => {
-            println!("[LOG] send reply message");
+            log::debug!("send reply message");
         },
         Err(_e) => {
         },
@@ -69,7 +69,7 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
         Some(FunctionCode::ReadCoils) =>{
             let addr= pdu_data.read_u16::<BigEndian>().unwrap();
             let count = pdu_data.read_u16::<BigEndian>().unwrap();
-            println!("[LOG] request ReadCoils addr: {}; count: {}", addr, count);
+            log::info!("request ReadCoils addr: {}; count: {}", addr, count);
             match status.read_coils(addr, count) {
                 Ok(coils) => {
                     buff.write_u8(function_code).unwrap();
@@ -80,7 +80,7 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
                     }
                 },
                 Err(e) => {
-                    println!("something wrong {}", e);
+                    log::info!("something wrong {}", e);
                     handle_status_error(function_code, e, &mut buff);
                 }
             }
@@ -88,7 +88,7 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
         Some(FunctionCode::ReadDiscreteInputs) =>{
             let addr= pdu_data.read_u16::<BigEndian>().unwrap();
             let count = pdu_data.read_u16::<BigEndian>().unwrap();
-            println!("[LOG] request ReadDiscreteInputs, addr: {}; count: {}", addr, count);
+            log::info!("request ReadDiscreteInputs, addr: {}; count: {}", addr, count);
             match status.read_discrete_inputs(addr, count) {
                 Ok(coils) => {
                     buff.write_u8(function_code).unwrap();
@@ -99,7 +99,7 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
                     }
                 },
                 Err(e) => {
-                    println!("something wrong {}", e);
+                    log::info!("something wrong {}", e);
                     handle_status_error(function_code, e, &mut buff);
                 }
             }
@@ -107,7 +107,7 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
         Some(FunctionCode::ReadHoldingRegisters) =>{
             let addr= pdu_data.read_u16::<BigEndian>().unwrap();
             let count = pdu_data.read_u16::<BigEndian>().unwrap();
-            println!("[LOG] request ReadHoldingRegisters, addr: {}; count: {}", addr, count);
+            log::info!("request ReadHoldingRegisters, addr: {}; count: {}", addr, count);
             let mut buff = vec![0; MODBUS_HEADER_SIZE];
             match status.read_holding_registers(addr, count) {
                 Ok(registers) => {
@@ -118,7 +118,7 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
                     }
                 },
                 Err(e) => {
-                    println!("something wrong {}", e);
+                    log::info!("something wrong {}", e);
                     handle_status_error(function_code, e, &mut buff);
                 }
             }
@@ -126,7 +126,7 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
         Some(FunctionCode::ReadInputRegisters) =>{
             let addr= pdu_data.read_u16::<BigEndian>().unwrap();
             let count = pdu_data.read_u16::<BigEndian>().unwrap();
-            println!("[LOG] request ReadInputRegisters, addr: {}; count: {}", addr, count);
+            log::info!("request ReadInputRegisters, addr: {}; count: {}", addr, count);
             match status.read_input_registers(addr, count) {
                 Ok(registers) => {
                     buff.write_u8(function_code).unwrap();
@@ -136,35 +136,35 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
                     }
                 },
                 Err(e) => {
-                    println!("something wrong {}", e);
+                    log::info!("something wrong {}", e);
                     handle_status_error(function_code, e, &mut buff);
                 }
             }
         },
         Some(FunctionCode::WriteSingleCoil) => {
             let addr= pdu_data.read_u16::<BigEndian>().unwrap();
-            println!("[LOG] request WriteSingleCoil, addr: {}", addr);
+            log::info!("request WriteSingleCoil, addr: {}", addr);
             let value = pdu_data.read_u16::<BigEndian>().unwrap();
             match status.write_single_coil(addr, Coil::from_u16(value).unwrap()) {
                 Ok(()) => {
                     buff.write_u8(function_code).unwrap();
                 },
                 Err(e) => {
-                    println!("something wrong {}", e);
+                    log::info!("something wrong {}", e);
                     handle_status_error(function_code, e, &mut buff);
                 }
             }
         },
         Some(FunctionCode::WriteSingleRegister) => {
             let addr= pdu_data.read_u16::<BigEndian>().unwrap();
-            println!("[LOG] request WriteSingleRegisters, addr: {}", addr);
+            log::info!("request WriteSingleRegisters, addr: {}", addr);
             let value = pdu_data.read_u16::<BigEndian>().unwrap();
             match status.write_single_register(addr, value) {
                 Ok(()) => {
                     buff.write_u8(function_code).unwrap();
                 },
                 Err(e) => {
-                    println!("something wrong {}", e);
+                    log::info!("something wrong {}", e);
                     handle_status_error(function_code, e, &mut buff);
                 }
             }
@@ -172,7 +172,7 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
         Some(FunctionCode::WriteMultipleCoils) => {
             let addr= pdu_data.read_u16::<BigEndian>().unwrap();
             let count = pdu_data.read_u16::<BigEndian>().unwrap();
-            println!("[LOG] request WriteMultipleCoils,  addr: {}; count: {}", addr, count);
+            log::info!("request WriteMultipleCoils,  addr: {}; count: {}", addr, count);
             let mut values :Vec<Coil> = Vec::with_capacity(count as usize);
             for i in 0..count-1 {
                 values[i as usize] = Coil::from_u16(pdu_data.read_u16::<BigEndian>().unwrap()).unwrap();
@@ -182,7 +182,7 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
                     buff.write_u8(function_code).unwrap();
                 },
                 Err(e) => {
-                    println!("something wrong {}", e);
+                    log::info!("something wrong {}", e);
                     handle_status_error(function_code, e, &mut buff);
                 }
             }
@@ -190,7 +190,7 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
         Some(FunctionCode::WriteMultipleRegisters) => {
             let addr= pdu_data.read_u16::<BigEndian>().unwrap();
             let count = pdu_data.read_u16::<BigEndian>().unwrap();
-            println!("[LOG] request WriteMultipleRegisters, addr: {}; count: {}", addr, count);
+            log::info!("request WriteMultipleRegisters, addr: {}; count: {}", addr, count);
             let mut values :Vec<u16> = Vec::with_capacity(count as usize);
             for i in 0..count-1 {
                 values[i as usize] = pdu_data.read_u16::<BigEndian>().unwrap();
@@ -200,7 +200,7 @@ pub fn handle_pdu_data(stream: &mut TcpStream, status: &mut StatusInfo, mbap_hea
                     buff.write_u8(function_code).unwrap();
                 },
                 Err(e) => {
-                    println!("something wrong {}", e);
+                    log::info!("something wrong {}", e);
                     handle_status_error(function_code, e, &mut buff);
                 }
             }
@@ -220,10 +220,10 @@ pub fn handle_client(mut stream: TcpStream, _tid: u16, _uid: u8,
     loop {
         match stream.read(data) {
             Err(_) => {
-                println!("[LOG] connection with {} terminated", peer_addr.to_string());
+                log::info!("connection with {} terminated", peer_addr.to_string());
                 match stream.shutdown(Shutdown::Both) {
                     Err(e) => {
-                        println!("[LOG] connection with {} shutdown failed, {}",
+                        log::warn!("connection with {} shutdown failed, {}",
                         peer_addr.to_string(), e);
                     },
                     Ok(_) => {

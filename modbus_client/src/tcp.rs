@@ -114,7 +114,7 @@ impl Transport {
         match stream {
             Ok(socket) => {
                 let peer_addr = socket.peer_addr().unwrap();
-                println!("[LOG] connected server: {:?}", peer_addr);
+                log::info!("connected server: {:?}", peer_addr);
                 socket.set_read_timeout(cfg.tcp_read_timeout)?;
                 socket.set_write_timeout(cfg.tcp_write_timeout)?;
                 socket.set_nodelay(true)?;
@@ -184,9 +184,9 @@ impl Transport {
 
     fn validate_response_header(req: &Header, resp: &Header) -> Result<()> {
         if req.tid != resp.tid || resp.pid != MODBUS_PROTOCOL_TCP {
-            println!("[LOG] Invalid response header:");
-            println!("[LOG]    tid: expected: {}, result: {}", req.tid, resp.tid);
-            println!("[LOG]    pid: expected: {}, result: {}", MODBUS_PROTOCOL_TCP, resp.pid);
+            log::info!("Invalid response header:");
+            log::info!("   tid: expected: {}, result: {}", req.tid, resp.tid);
+            log::info!("   pid: expected: {}, result: {}", MODBUS_PROTOCOL_TCP, resp.pid);
             Err(Error::InvalidResponse)
         } else {
             Ok(())
@@ -198,15 +198,15 @@ impl Transport {
             match ExceptionCode::from_u8(resp[8]) {
                 Some(code) => Err(Error::Exception(code)),
                 None => {
-                    println!("[LOG] Invalid Exception code: {}", resp[8]);
+                    log::info!("Invalid Exception code: {}", resp[8]);
                     Err(Error::InvalidResponse)
                 }
             }
         } else if req[7] == resp[7] {
             Ok(())
         } else {
-            println!("[LOG] invalid response code");
-            println!("[LOG]    expected: {}, result: {}", req[7], resp[7]);
+            log::info!("invalid response code");
+            log::info!("   expected: {}, result: {}", req[7], resp[7]);
             Err(Error::InvalidResponse)
         }
     }
@@ -215,10 +215,10 @@ impl Transport {
         if reply[8] as usize != expected_bytes
             || reply.len() != MODBUS_HEADER_SIZE + expected_bytes + 2
         {
-            println!("[LOG] Unexpected reply size");
-            println!("[LOG]    length field, expected: {}, result: {}",
+            log::info!("Unexpected reply size");
+            log::info!("   length field, expected: {}, result: {}",
                        expected_bytes, reply[8]);
-            println!("[LOG]    length expected: {}, result: {}",
+            log::info!("   length expected: {}, result: {}",
                        MODBUS_HEADER_SIZE + expected_bytes + 2, reply.len());
             Err(Error::InvalidData(Reason::UnexpectedReplySize))
         } else {
