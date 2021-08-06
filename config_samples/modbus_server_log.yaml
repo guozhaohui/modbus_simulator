@@ -11,7 +11,7 @@ appenders:
     kind: file
     path: "log/modbus_server.log"
     encoder:
-      pattern: "{d} - {m}{n}"
+      pattern: "{d} - {T} - {m}{n}"
 
 # Set the default logging level to "warn" and attach the "stdout" appender to the root
 root:
