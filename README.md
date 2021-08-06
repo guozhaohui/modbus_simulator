@@ -1,4 +1,5 @@
 [![Rust](https://github.com/guozhaohui/modbus_simulator/actions/workflows/rust.yml/badge.svg)](https://github.com/guozhaohui/modbus_simulator/actions/workflows/rust.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 # modbus_simulator
 A modbus simulator written by rust.
 
