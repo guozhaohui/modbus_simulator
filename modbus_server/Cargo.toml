@@ -6,6 +6,9 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+log4rs_yaml = []
+
 [dependencies]
 modbus_protocol = { path = "../modbus_protocol" }
 byteorder = "1"

@@ -19,8 +19,22 @@ fn handle_error(e: Error) {
 
 fn main() {
 
+  #[cfg(feature="log4rs_yaml")]
   log4rs::init_file("modbus_client_log.yaml", Default::default()).unwrap();
+  #[cfg(not(feature="log4rs_yaml"))]
+  {
+      let logfile = log4rs::append::file::FileAppender::builder()
+          .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new("{d} - {m}{n}")))
+          .build("log/modbus_client.log").unwrap();
 
+      let log4rs_config = log4rs::config::Config::builder()
+          .appender(log4rs::config::Appender::builder().build("logfile", Box::new(logfile)))
+          .build(log4rs::config::Root::builder()
+                     .appender("logfile")
+                     .build(log::LevelFilter::Info)).unwrap();
+
+      log4rs::init_config(log4rs_config).unwrap();
+  }
   let matches = App::new("client")
     .author("Zhaohui GUO <guo.zhaohui@gmail.com>")
     .version(&crate_version!()[..])

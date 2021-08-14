@@ -63,7 +63,22 @@ fn main() {
     let mut tid: u16 = 0;
     let mut size: usize = 0;
 
+    #[cfg(feature="log4rs_yaml")]
     log4rs::init_file("modbus_server_log.yaml", Default::default()).unwrap();
+    #[cfg(not(feature="log4rs_yaml"))]
+    {
+        let logfile = log4rs::append::file::FileAppender::builder()
+            .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new("{d} - {T} - {m}{n}")))
+            .build("log/modbus_server.log").unwrap();
+
+        let log4rs_config = log4rs::config::Config::builder()
+            .appender(log4rs::config::Appender::builder().build("logfile", Box::new(logfile)))
+            .build(log4rs::config::Root::builder()
+                       .appender("logfile")
+                       .build(log::LevelFilter::Info)).unwrap();
+
+        log4rs::init_config(log4rs_config).unwrap();
+    }
 
     let matches = App::new("Modbus Server")
         .author("Zhaohui GUO <guo.zhaohui@gmail.com>")
