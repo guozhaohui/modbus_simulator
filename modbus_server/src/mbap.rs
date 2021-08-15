@@ -1,4 +1,3 @@
-extern crate modbus_protocol;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::Cursor;
 use modbus_protocol::exception_code::{Error, Reason, Result};

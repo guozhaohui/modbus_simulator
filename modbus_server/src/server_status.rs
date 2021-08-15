@@ -1,5 +1,3 @@
-extern crate rand;
-extern crate modbus_protocol;
 use rand::Rng;
 use modbus_protocol::exception_code::{Result, Error, ExceptionCode};
 use modbus_protocol::coils::Coil;

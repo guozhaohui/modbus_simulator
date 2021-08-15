@@ -1,7 +1,3 @@
-extern crate num_derive;
-extern crate num_traits;
-extern crate clap;
-extern crate modbus_protocol;
 use num_traits::FromPrimitive;
 use std::net::{Shutdown, TcpStream};
 use std::net::{SocketAddr};

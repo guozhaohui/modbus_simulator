@@ -1,5 +1,3 @@
-extern crate modbus_protocol;
-
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::borrow::BorrowMut;
 use std::io::{self, Cursor, Read, Write};
