@@ -1,4 +1,6 @@
+extern crate rand;
 extern crate modbus_protocol;
+use rand::Rng;
 use modbus_protocol::exception_code::{Result, Error, ExceptionCode};
 use modbus_protocol::coils::Coil;
 use modbus_protocol::requests::Requests;
@@ -20,10 +22,13 @@ pub struct StatusInfo {
 
 impl StatusInfo {
     pub fn create(size: usize) -> StatusInfo {
-        let coils = vec![Coil::Off; size];
-        let discrete_inputs = vec![Coil::Off; size];
-        let input_registers = vec![0u16; size];
+        let mut coils = vec![Coil::Off; size];
+        let discrete_inputs : Vec<Coil> = (0..size).map(|_| Coil::from(rand::thread_rng().gen_bool(0.5))).collect();
+        let input_registers: Vec<u16> = (0..size).map(|_| rand::thread_rng().gen_range(0..100)).collect();
         let holding_registers = vec![0u16; size];
+        for i in 0..size {
+            coils[i] = Coil::from(rand::thread_rng().gen_bool(0.5));
+        }
         StatusInfo{ capacity: size as u16,
                     coils: coils, discrete_inputs: discrete_inputs,
                     input_registers: input_registers, holding_registers: holding_registers}
