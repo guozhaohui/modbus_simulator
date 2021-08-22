@@ -10,11 +10,98 @@ use clap::crate_version;
 use modbus_protocol::coils::Coil;
 use modbus_protocol::requests::Requests;
 use modbus_protocol::exception_code::{Error};
+use modbus_protocol::function_code::ModbusFunction;
 mod tcp;
-use tcp::ModbusConfig;
+use tcp::{ModbusConfig, Transport};
+
 
 fn handle_error(e: Error) {
     log::info!("failed with {}", e);
+}
+
+fn handle_request(client: &mut Transport, fun: &ModbusFunction) {
+    match *fun {
+        ModbusFunction::ReadCoils(addr, qtty) => {
+            match client.read_coils(addr, qtty) {
+                Err(e) =>{
+                    handle_error(e);
+                },
+                Ok(_) => {
+                    log::info!("Succeeded");
+                }
+            };
+        }
+        ModbusFunction::ReadDiscreteInputs(addr, qtty) => {
+            match client.read_discrete_inputs(addr, qtty) {
+                Err(e) =>{
+                    handle_error(e);
+                },
+                Ok(_) => {
+                    log::info!("Succeeded");
+                }
+            };
+        }
+        ModbusFunction::ReadHoldingRegisters(addr, qtty) => {
+            match client.read_holding_registers(addr, qtty) {
+                Err(e) =>{
+                    handle_error(e);
+                },
+                Ok(_) => {
+                    log::info!("Succeeded");
+                }
+            };
+        }
+        ModbusFunction::ReadInputRegisters(addr, qtty) => {
+            match client.read_input_registers(addr, qtty) {
+                Err(e) =>{
+                    handle_error(e);
+                },
+                Ok(_) => {
+                    log::info!("Succeeded");
+                }
+            };
+        }
+        ModbusFunction::WriteSingleCoil(addr, value) => {
+            match client.write_single_coil(addr, value) {
+                Err(e) =>{
+                    handle_error(e);
+                },
+                Ok(_) => {
+                    log::info!("Succeeded");
+                }
+            };
+        }
+        ModbusFunction::WriteSingleRegister(addr, value) => {
+            match client.write_single_register(addr, value){
+                Err(e) =>{
+                    handle_error(e);
+                },
+                Ok(_) => {
+                    log::info!("Succeeded");
+                }
+            };
+        }
+        ModbusFunction::WriteMultipleCoils(addr, values) => {
+            match client.write_multiple_coils(addr, &values) {
+                Err(e) =>{
+                    handle_error(e);
+                },
+                Ok(_) => {
+                    log::info!("Succeeded");
+                }
+            };
+        }
+        ModbusFunction::WriteMultipleRegisters(addr, values) => {
+            match client.write_multiple_registers(addr, &values) {
+                Err(e) =>{
+                    handle_error(e);
+                },
+                Ok(_) => {
+                    log::info!("Succeeded");
+                }
+            };
+        }
+    }
 }
 
 fn main() {
@@ -89,38 +176,17 @@ fn main() {
     let args: Vec<&str> = args.collect();
     let addr: u16 = args[0].parse().expect(matches.usage());
     let qtty: u16 = args[1].parse().expect(matches.usage());
-    match client.read_coils(addr, qtty) {
-        Err(e) =>{
-            handle_error(e);
-        },
-        Ok(_) => {
-            log::info!("Succeeded");
-        }
-    };
+    handle_request(&mut client, &ModbusFunction::ReadCoils(addr, qtty));
   } else if let Some(args) = matches.values_of("read-discrete-inputs") {
     let args: Vec<&str> = args.collect();
     let addr: u16 = args[0].parse().expect(matches.usage());
     let qtty: u16 = args[1].parse().expect(matches.usage());
-    match client.read_discrete_inputs(addr, qtty) {
-        Err(e) =>{
-            handle_error(e);
-        },
-        Ok(_) => {
-            log::info!("Succeeded");
-        }
-    };
+    handle_request(&mut client, &ModbusFunction::ReadDiscreteInputs(addr, qtty));
   } else if let Some(args) = matches.values_of("write-single-coil") {
     let args: Vec<&str> = args.collect();
     let addr: u16 = args[0].parse().expect(matches.usage());
     let value: Coil = args[1].parse().expect(matches.usage());
-    match client.write_single_coil(addr, value) {
-        Err(e) =>{
-            handle_error(e);
-        },
-        Ok(_) => {
-            log::info!("Succeeded");
-        }
-    };
+    handle_request(&mut client, &ModbusFunction::WriteSingleCoil(addr, value));
   } else if let Some(args) = matches.values_of("write-multiple-coils") {
     let args: Vec<&str> = args.collect();
     let addr: u16 = args[0].parse().expect(matches.usage());
@@ -128,38 +194,17 @@ fn main() {
       .split(',')
       .map(|s| s.trim().parse().expect(matches.usage()))
       .collect();
-    match client.write_multiple_coils(addr, &values) {
-        Err(e) =>{
-            handle_error(e);
-        },
-        Ok(_) => {
-            log::info!("Succeeded");
-        }
-    };
+    handle_request(&mut client, &ModbusFunction::WriteMultipleCoils(addr, &values));
   } else if let Some(args) = matches.values_of("read-holding-registers") {
     let args: Vec<&str> = args.collect();
     let addr: u16 = args[0].parse().expect(matches.usage());
     let qtty: u16 = args[1].parse().expect(matches.usage());
-    match client.read_holding_registers(addr, qtty) {
-        Err(e) =>{
-            handle_error(e);
-        },
-        Ok(_) => {
-            log::info!("Succeeded");
-        }
-    };
+    handle_request(&mut client, &ModbusFunction::ReadHoldingRegisters(addr, qtty));
   } else if let Some(args) = matches.values_of("write-single-register") {
     let args: Vec<&str> = args.collect();
     let addr: u16 = args[0].parse().expect(matches.usage());
     let value: u16 = args[1].parse().expect(matches.usage());
-    match client.write_single_register(addr, value){
-        Err(e) =>{
-            handle_error(e);
-        },
-        Ok(_) => {
-            log::info!("Succeeded");
-        }
-    };
+    handle_request(&mut client, &ModbusFunction::WriteSingleRegister(addr, value));
   } else if let Some(args) = matches.values_of("write-multiple-registers") {
     let args: Vec<&str> = args.collect();
     let addr: u16 = args[0].parse().expect(matches.usage());
@@ -167,13 +212,6 @@ fn main() {
       .split(',')
       .map(|s| s.trim().parse().expect(matches.usage()))
       .collect();
-    match client.write_multiple_registers(addr, &values) {
-        Err(e) =>{
-            handle_error(e);
-        },
-        Ok(_) => {
-            log::info!("Succeeded");
-        }
-    };
+    handle_request(&mut client, &ModbusFunction::WriteMultipleRegisters(addr, &values));
   };
 }

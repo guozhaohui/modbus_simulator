@@ -6,7 +6,6 @@ use std::time::Duration;
 use modbus_protocol::exception_code::{Error, ExceptionCode, Reason, Result};
 use modbus_protocol::coils::Coil;
 use modbus_protocol::requests::Requests;
-use modbus_protocol::function_code::Function;
 use modbus_protocol::utils;
 use num_traits::FromPrimitive;
 
@@ -89,6 +88,37 @@ impl Header {
         })
     }
 }
+
+pub enum Function<'a> {
+    ReadCoils(u16, u16),
+    ReadDiscreteInputs(u16, u16),
+    ReadHoldingRegisters(u16, u16),
+    ReadInputRegisters(u16, u16),
+    WriteSingleCoil(u16, u16),
+    WriteSingleRegister(u16, u16),
+    WriteMultipleCoils(u16, u16, &'a [u8]),
+    WriteMultipleRegisters(u16, u16, &'a [u8]),
+}
+
+impl<'a> Function<'a> {
+    pub fn code(&self) -> u8 {
+        match *self {
+            Function::ReadCoils(_, _) => 0x01,
+            Function::ReadDiscreteInputs(_, _) => 0x02,
+            Function::ReadHoldingRegisters(_, _) => 0x03,
+            Function::ReadInputRegisters(_, _) => 0x04,
+            Function::WriteSingleCoil(_, _) => 0x05,
+            Function::WriteSingleRegister(_, _) => 0x06,
+            Function::WriteMultipleCoils(_, _, _) => 0x0f,
+            Function::WriteMultipleRegisters(_, _, _) => 0x10,
+        }
+        // ReadExceptionStatus     = 0x07,
+        // ReportSlaveId           = 0x11,
+        // MaskWriteRegister       = 0x16,
+        // WriteAndReadRegisters   = 0x17
+    }
+}
+
 
 /// Context object which holds state for all modbus operations.
 pub struct Transport {
