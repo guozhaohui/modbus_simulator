@@ -23,7 +23,7 @@ const MODBUS_TCP_DEFAULT_PORT: u16 = 502;
 
 /// Config structure for more control over the tcp socket settings
 #[derive(Clone, Copy)]
-pub struct Config {
+pub struct ModbusConfig {
     /// The TCP port to use for communication (Default: `502`)
     pub tcp_port: u16,
     /// Connection timeout for TCP socket (Default: `OS Default`)
@@ -36,9 +36,9 @@ pub struct Config {
     pub modbus_uid: u8,
 }
 
-impl Default for Config {
-    fn default() -> Config {
-        Config {
+impl Default for ModbusConfig {
+    fn default() -> ModbusConfig {
+        ModbusConfig {
             tcp_port: MODBUS_TCP_DEFAULT_PORT,
             tcp_connect_timeout: None,
             tcp_read_timeout: None,
@@ -48,7 +48,7 @@ impl Default for Config {
     }
 }
 
-impl Config {
+impl ModbusConfig {
     fn set_port(self: &mut Self, port: u16) {
         self.tcp_port = port;
     }
@@ -95,18 +95,18 @@ fn main() {
         )
         .get_matches();
 
-    let mut config = Config::default();
+    let mut modbus_config = ModbusConfig::default();
     let addr = matches.value_of("SERVER").unwrap();
     if let Some(args) = matches.values_of("port") {
         let args: Vec<&str> = args.collect();
         let port = args[0].parse().expect(matches.usage());
-        config.set_port(port);
+        modbus_config.set_port(port);
     }
 
     if let Some(args) = matches.values_of("unit_id") {
         let args: Vec<&str> = args.collect();
         uid = args[0].parse().expect(matches.usage());
-        config.set_uid(uid);
+        modbus_config.set_uid(uid);
     }
     if let Some(args) = matches.values_of("capacity") {
         let args: Vec<&str> = args.collect();
@@ -114,7 +114,7 @@ fn main() {
     }
 
     let status_info = Arc::new(Mutex::new(StatusInfo::create(size)));
-    let listener = TcpListener::bind((addr, config.tcp_port)).unwrap();
+    let listener = TcpListener::bind((addr, modbus_config.tcp_port)).unwrap();
     for stream in listener.incoming() {
         match stream {
             Ok(_socket) => {

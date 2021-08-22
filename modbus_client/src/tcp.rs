@@ -15,9 +15,9 @@ const MODBUS_TCP_DEFAULT_PORT: u16 = 502;
 const MODBUS_HEADER_SIZE: usize = 7;
 const MODBUS_MAX_PACKET_SIZE: usize = 260;
 
-/// Config structure for more control over the tcp socket settings
+/// ModbusConfig structure for more control over the tcp socket settings
 #[derive(Clone, Copy)]
-pub struct Config {
+pub struct ModbusConfig {
     /// The TCP port to use for communication (Default: `502`)
     pub tcp_port: u16,
     /// Connection timeout for TCP socket (Default: `OS Default`)
@@ -30,9 +30,9 @@ pub struct Config {
     pub modbus_uid: u8,
 }
 
-impl Default for Config {
-    fn default() -> Config {
-        Config {
+impl Default for ModbusConfig {
+    fn default() -> ModbusConfig {
+        ModbusConfig {
             tcp_port: MODBUS_TCP_DEFAULT_PORT,
             tcp_connect_timeout: None,
             tcp_read_timeout: None,
@@ -42,7 +42,7 @@ impl Default for Config {
     }
 }
 
-impl Config {
+impl ModbusConfig {
     pub fn set_port(self: &mut Self, port: u16) {
         self.tcp_port = port;
     }
@@ -99,7 +99,7 @@ pub struct Transport {
 
 impl Transport {
     /// Create a new context object and connect it to `addr` on port `port`
-    pub fn new_with_cfg(addr: &str, cfg: Config) -> io::Result<Transport> {
+    pub fn new_with_cfg(addr: &str, cfg: ModbusConfig) -> io::Result<Transport> {
         let stream = match cfg.tcp_connect_timeout {
             Some(timeout) => {
                 // Call to connect_timeout needs to be done on a single address

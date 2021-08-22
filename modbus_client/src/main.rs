@@ -11,7 +11,7 @@ use modbus_protocol::coils::Coil;
 use modbus_protocol::requests::Requests;
 use modbus_protocol::exception_code::{Error};
 mod tcp;
-use tcp::Config;
+use tcp::ModbusConfig;
 
 fn handle_error(e: Error) {
     log::info!("failed with {}", e);
@@ -70,20 +70,20 @@ fn main() {
     )
     .get_matches();
 
-  let mut config = Config::default();
+  let mut modbus_config = ModbusConfig::default();
   let addr = matches.value_of("SERVER").unwrap();
   if let Some(args) = matches.values_of("port") {
       let args: Vec<&str> = args.collect();
       let port = args[0].parse().expect(matches.usage());
-      config.set_port(port);
+      modbus_config.set_port(port);
   }
 
   if let Some(args) = matches.values_of("unit_id") {
       let args: Vec<&str> = args.collect();
       let uid = args[0].parse().expect(matches.usage());
-      config.set_uid(uid);
+      modbus_config.set_uid(uid);
   }
-  let mut client = tcp::Transport::new_with_cfg(addr, config).unwrap();
+  let mut client = tcp::Transport::new_with_cfg(addr, modbus_config).unwrap();
 
   if let Some(args) = matches.values_of("read-coils") {
     let args: Vec<&str> = args.collect();
