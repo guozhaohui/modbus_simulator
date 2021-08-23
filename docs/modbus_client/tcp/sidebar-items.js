@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["MODBUS_HEADER_SIZE",""],["MODBUS_MAX_PACKET_SIZE",""],["MODBUS_PROTOCOL_TCP",""],["MODBUS_TCP_DEFAULT_PORT",""]],"enum":[["Function",""]],"struct":[["Header",""],["ModbusConfig","ModbusConfig structure for more control over the tcp socket settings"],["Transport","Context object which holds state for all modbus operations."]]});

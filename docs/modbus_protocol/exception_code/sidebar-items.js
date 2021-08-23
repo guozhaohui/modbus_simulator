@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Error","Combination of Modbus, IO and data corruption errors"],["ExceptionCode","Modbus exception codes returned from the server."],["Reason","`InvalidData` reasons"]],"type":[["Result","Result type used to nofify success or failure in communication"]]});

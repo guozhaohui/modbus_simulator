@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["FunctionCode",""],["ModbusFunction",""]],"type":[["Address",""],["Coils",""],["Quantity",""],["Value",""],["Values",""]]});
